@@ -1,73 +1,138 @@
-# React + TypeScript + Vite
+# CRM Beauty Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Фронтенд приложения для управления записями в салоне красоты.
 
-Currently, two official plugins are available:
+## 🚀 Технологии
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React 19** - UI библиотека
+- **TypeScript** - типизация
+- **Vite** - сборщик и dev сервер
+- **Material-UI (MUI)** - компоненты UI
+- **React Router** - маршрутизация
+- **React Hook Form** - управление формами
+- **Axios** - HTTP клиент
 
-## React Compiler
+## 📦 Установка
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Установка зависимостей
+npm install
 
-## Expanding the ESLint configuration
+# Запуск dev сервера
+npm run dev
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# Сборка для продакшена
+npm run build
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Предварительный просмотр сборки
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🏗️ Структура проекта
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── app/
+│   └── App.tsx              # Главный компонент приложения
+├── components/
+│   ├── BookingForm.tsx      # Форма записи на прием
+│   ├── Logo.tsx             # Логотип приложения
+│   └── MasterSkeleton.tsx   # Скелетон страницы мастера
+├── pages/
+│   ├── Landing.tsx        # Главная страница
+│   └── MasterPage.tsx      # Страница мастера
+├── main.tsx                 # Точка входа
+└── index.css               # Глобальные стили
+```
+
+## 🛣️ Маршруты
+
+- `/` - Главная страница с приветствием
+- `/:slug` - Страница мастера с формой записи
+- `/*` - Fallback на скелетон (любые несуществующие маршруты)
+
+## 📝 Форма записи
+
+Форма записи включает следующие поля:
+
+- **Имя** (обязательное) - имя клиента
+- **Телефон** (обязательное) - номер телефона с валидацией
+- **Услуга** (обязательное) - выбор из списка:
+  - Маникюр
+  - Педикюр
+  - Массаж лица
+  - Макияж
+  - Прическа
+  - Брови
+  - Ресницы
+- **Дата и время** (обязательное) - datetime-local input
+- **Комментарий** (необязательное) - дополнительная информация
+
+## ✨ Особенности
+
+- **Валидация форм** - проверка обязательных полей и формата телефона
+- **Адаптивный дизайн** - работает на всех устройствах
+- **Material Design** - современный UI/UX
+- **TypeScript** - полная типизация
+- **Горячая перезагрузка** - быстрая разработка
+
+## 🔧 Разработка
+
+### Запуск в режиме разработки
+
+```bash
+npm run dev
+```
+
+Приложение будет доступно по адресу `http://localhost:5173`
+
+### Проверка кода
+
+```bash
+# Линтинг
+npm run lint
+```
+
+### Сборка
+
+```bash
+# Создание production сборки
+npm run build
+
+# Предварительный просмотр сборки
+npm run preview
+```
+
+## 📱 Использование
+
+1. **Главная страница** (`/`) - приветствие и информация о системе
+2. **Страница мастера** (`/test` или любой slug) - форма записи к мастеру
+
+### Примеры URL:
+- `http://localhost:5173/` - главная
+- `http://localhost:5173/anna` - страница мастера Анны
+- `http://localhost:5173/maria` - страница мастера Марии
+
+## 🎨 UI Компоненты
+
+### BookingForm
+Форма записи с валидацией и красивым дизайном:
+- Валидация в реальном времени
+- Обработка ошибок
+- Уведомления об успешной отправке
+
+### MasterSkeleton
+Скелетон для загрузки информации о мастере:
+- Анимированные плейсхолдеры
+- Адаптивная верстка
+
+## 🔗 Интеграция с бэкендом
+
+Форма записи готова к интеграции с API:
+- Данные формы логируются в консоль
+- Легко добавить отправку на сервер через Axios
+- Типизированные интерфейсы для API
+
+## 📄 Лицензия
+
+MIT License
