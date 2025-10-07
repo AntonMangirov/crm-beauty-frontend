@@ -11,7 +11,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useForm, Controller } from "react-hook-form";
+import {
+  useForm,
+  Controller,
+  type ControllerRenderProps,
+} from "react-hook-form";
 
 interface BookingFormData {
   name: string;
@@ -23,6 +27,7 @@ interface BookingFormData {
 
 interface BookingFormProps {
   onSubmit: (data: BookingFormData) => void;
+  isLoading?: boolean;
 }
 
 const services = [
@@ -35,7 +40,7 @@ const services = [
   "Ресницы",
 ];
 
-export function BookingForm({ onSubmit }: BookingFormProps) {
+export function BookingForm({ onSubmit, isLoading = false }: BookingFormProps) {
   const {
     control,
     handleSubmit,
@@ -64,7 +69,11 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
               name="name"
               control={control}
               rules={{ required: "Имя обязательно для заполнения" }}
-              render={({ field }: { field: any }) => (
+              render={({
+                field,
+              }: {
+                field: ControllerRenderProps<BookingFormData, "name">;
+              }) => (
                 <TextField
                   {...field}
                   label="Имя"
@@ -82,11 +91,15 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
               rules={{
                 required: "Телефон обязателен для заполнения",
                 pattern: {
-                  value: /^[\+]?[0-9\s\-\(\)]{10,}$/,
+                  value: /^[+]?[0-9\s\-()]{10,}$/,
                   message: "Введите корректный номер телефона",
                 },
               }}
-              render={({ field }: { field: any }) => (
+              render={({
+                field,
+              }: {
+                field: ControllerRenderProps<BookingFormData, "phone">;
+              }) => (
                 <TextField
                   {...field}
                   label="Телефон"
@@ -102,7 +115,11 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
               name="service"
               control={control}
               rules={{ required: "Выберите услугу" }}
-              render={({ field }: { field: any }) => (
+              render={({
+                field,
+              }: {
+                field: ControllerRenderProps<BookingFormData, "service">;
+              }) => (
                 <FormControl fullWidth error={!!errors.service}>
                   <InputLabel>Услуга</InputLabel>
                   <Select {...field} label="Услуга">
@@ -130,7 +147,11 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
               name="datetime"
               control={control}
               rules={{ required: "Выберите дату и время" }}
-              render={({ field }: { field: any }) => (
+              render={({
+                field,
+              }: {
+                field: ControllerRenderProps<BookingFormData, "datetime">;
+              }) => (
                 <TextField
                   {...field}
                   label="Дата и время"
@@ -149,7 +170,11 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
             <Controller
               name="comment"
               control={control}
-              render={({ field }: { field: any }) => (
+              render={({
+                field,
+              }: {
+                field: ControllerRenderProps<BookingFormData, "comment">;
+              }) => (
                 <TextField
                   {...field}
                   label="Комментарий (необязательно)"
@@ -166,9 +191,10 @@ export function BookingForm({ onSubmit }: BookingFormProps) {
               variant="contained"
               size="large"
               fullWidth
+              disabled={isLoading}
               sx={{ mt: 2 }}
             >
-              Записаться
+              {isLoading ? "Отправка..." : "Записаться"}
             </Button>
           </Stack>
         </Box>
