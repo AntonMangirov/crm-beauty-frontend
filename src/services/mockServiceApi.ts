@@ -10,8 +10,8 @@ import type {
 // Ключ для localStorage
 const STORAGE_KEY = "crm_services";
 
-// Имитация задержки API
-const delay = (ms: number = 500) =>
+// Имитация задержки API (отключена для разработки)
+const delay = (ms: number = 0) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 // Генерация уникального ID

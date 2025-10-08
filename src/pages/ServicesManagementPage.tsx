@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Container,
   Typography,
@@ -34,6 +34,9 @@ export function ServicesManagementPage() {
     searchServices,
     filterServices,
   } = useServices();
+
+  // Состояние поиска для индикатора
+  const [isSearching, setIsSearching] = useState(false);
 
   // Состояния для модальных окон
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -120,17 +123,28 @@ export function ServicesManagementPage() {
   };
 
   // Обработчики для фильтров
-  const handleSearch = (query: string) => {
-    searchServices(query);
-  };
+  const handleSearch = useCallback(
+    async (query: string) => {
+      setIsSearching(true);
+      try {
+        await searchServices(query);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [searchServices]
+  );
 
-  const handleFilter = (isActive: boolean | undefined) => {
-    filterServices(isActive);
-  };
+  const handleFilter = useCallback(
+    (isActive: boolean | undefined) => {
+      filterServices(isActive);
+    },
+    [filterServices]
+  );
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     refreshServices();
-  };
+  }, [refreshServices]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -177,6 +191,7 @@ export function ServicesManagementPage() {
         onFilter={handleFilter}
         onClear={handleClearFilters}
         isLoading={isLoading}
+        isSearching={isSearching}
       />
 
       {/* Ошибки */}

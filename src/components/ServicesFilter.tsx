@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   TextField,
@@ -9,14 +9,17 @@ import {
   Button,
   Stack,
   Chip,
+  CircularProgress,
 } from "@mui/material";
 import { Search, Clear, FilterList } from "@mui/icons-material";
+import { useDebounce } from "../hooks/useDebounce";
 
 interface ServicesFilterProps {
   onSearch: (query: string) => void;
   onFilter: (isActive: boolean | undefined) => void;
   onClear: () => void;
   isLoading?: boolean;
+  isSearching?: boolean;
 }
 
 export function ServicesFilter({
@@ -24,16 +27,25 @@ export function ServicesFilter({
   onFilter,
   onClear,
   isLoading = false,
+  isSearching = false,
 }: ServicesFilterProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(
     undefined
   );
 
+  // Debounce поиска на 300ms
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Выполняем поиск только после debounce
+  useEffect(() => {
+    onSearch(debouncedSearchQuery);
+  }, [debouncedSearchQuery]); // Убираем onSearch из зависимостей
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const query = event.target.value;
     setSearchQuery(query);
-    onSearch(query);
+    // Убираем прямой вызов onSearch - теперь через debounce
   };
 
   const handleFilterChange = (value: boolean | undefined) => {
@@ -66,7 +78,11 @@ export function ServicesFilter({
           disabled={isLoading}
           sx={{ flexGrow: 1, minWidth: 200 }}
           InputProps={{
-            startAdornment: <Search sx={{ mr: 1, color: "text.secondary" }} />,
+            startAdornment: isSearching ? (
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+            ) : (
+              <Search sx={{ mr: 1, color: "text.secondary" }} />
+            ),
           }}
         />
 

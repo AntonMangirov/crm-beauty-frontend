@@ -3,7 +3,6 @@ import type {
   Service,
   CreateServiceRequest,
   UpdateServiceRequest,
-  ApiError,
 } from "../types/service";
 import { mockServiceApi } from "../services/mockServiceApi";
 
@@ -115,34 +114,56 @@ export const useServices = (): UseServicesReturn => {
 
   // Обновление списка услуг
   const refreshServices = useCallback(async () => {
-    await loadServices();
-  }, [loadServices]);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await mockServiceApi.getServices();
+      setServices(data);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка загрузки услуг";
+      setError(errorMessage);
+      console.error("Ошибка загрузки услуг:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []); // Убираем loadServices из зависимостей
 
   // Поиск услуг
-  const searchServices = useCallback(
-    async (query: string) => {
-      if (!query.trim()) {
-        await loadServices();
-        return;
-      }
-
+  const searchServices = useCallback(async (query: string) => {
+    // Если запрос пустой, загружаем все услуги
+    if (!query.trim()) {
       setIsLoading(true);
       setError(null);
-
       try {
-        const results = await mockServiceApi.searchServices(query);
-        setServices(results);
+        const data = await mockServiceApi.getServices();
+        setServices(data);
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Ошибка поиска услуг";
+          err instanceof Error ? err.message : "Ошибка загрузки услуг";
         setError(errorMessage);
-        console.error("Ошибка поиска услуг:", err);
+        console.error("Ошибка загрузки услуг:", err);
       } finally {
         setIsLoading(false);
       }
-    },
-    [loadServices]
-  );
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const results = await mockServiceApi.searchServices(query);
+      setServices(results);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка поиска услуг";
+      setError(errorMessage);
+      console.error("Ошибка поиска услуг:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []); // Убираем loadServices из зависимостей
 
   // Фильтрация услуг
   const filterServices = useCallback(async (isActive?: boolean) => {
@@ -165,7 +186,7 @@ export const useServices = (): UseServicesReturn => {
   // Загрузка услуг при монтировании компонента
   useEffect(() => {
     loadServices();
-  }, [loadServices]);
+  }, [loadServices]); // Возвращаем loadServices в зависимости
 
   return {
     services,

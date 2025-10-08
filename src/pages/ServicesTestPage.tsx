@@ -1,5 +1,6 @@
-import { Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box, Stack } from "@mui/material";
 import { MockApiTester } from "../components/MockApiTester";
+import { PerformanceTest } from "../components/PerformanceTest";
 
 export function ServicesTestPage() {
   return (
@@ -14,7 +15,10 @@ export function ServicesTestPage() {
         </Typography>
       </Box>
 
-      <MockApiTester />
+      <Stack spacing={3}>
+        <MockApiTester />
+        <PerformanceTest />
+      </Stack>
     </Container>
   );
 }
