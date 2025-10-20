@@ -1,34 +1,22 @@
-import {
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Button,
-  Chip,
-  Box,
-  Stack,
-} from "@mui/material";
-import { Edit, Delete, Visibility, VisibilityOff } from "@mui/icons-material";
-import type { Service } from "../types/service";
+import { Card, CardContent, Typography, Box, Button } from "@mui/material";
 
 interface ServiceCardProps {
-  service: Service;
-  onEdit: (service: Service) => void;
-  onDelete: (service: Service) => void;
-  onToggleActive: (service: Service) => void;
+  name: string;
+  price: number;
+  duration?: number;
+  description?: string;
 }
 
-export function ServiceCard({
-  service,
-  onEdit,
-  onDelete,
-  onToggleActive,
-}: ServiceCardProps) {
+export const ServiceCard: React.FC<ServiceCardProps> = ({
+  name,
+  price,
+  duration,
+  description,
+}) => {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU", {
       style: "currency",
       currency: "RUB",
-      minimumFractionDigits: 0,
     }).format(price);
   };
 
@@ -37,109 +25,59 @@ export function ServiceCard({
     const mins = minutes % 60;
 
     if (hours > 0) {
-      return mins > 0 ? `${hours}ч ${mins}мин` : `${hours}ч`;
+      return mins > 0 ? `${hours}ч ${mins}м` : `${hours}ч`;
     }
-    return `${mins}мин`;
+    return `${mins}м`;
   };
 
   return (
-    <Card
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        opacity: service.isActive ? 1 : 0.7,
-      }}
-    >
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Stack spacing={2}>
-          {/* Заголовок с названием и статусом */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-            }}
-          >
-            <Typography variant="h6" component="h3" sx={{ flexGrow: 1 }}>
-              {service.name}
-            </Typography>
-            <Chip
-              label={service.isActive ? "Активна" : "Неактивна"}
-              color={service.isActive ? "success" : "default"}
-              size="small"
-            />
-          </Box>
+    <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <CardContent
+        sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
+      >
+        {/* Header: название */}
+        <Typography variant="h3" component="h3" sx={{ fontWeight: 600, mb: 1 }}>
+          {name}
+        </Typography>
 
-          {/* Цена и длительность */}
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <Typography variant="h5" color="primary" fontWeight="bold">
-              {formatPrice(service.price)}
-            </Typography>
+        {/* Subline: duration • price */}
+        <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+          {duration && (
             <Typography variant="body2" color="text.secondary">
-              {formatDuration(service.durationMin)}
-            </Typography>
-          </Box>
-
-          {/* Описание */}
-          {service.description && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {service.description}
+              {formatDuration(duration)}
             </Typography>
           )}
-
-          {/* Даты создания и обновления */}
-          <Box
-            sx={{
-              display: "flex",
-              gap: 2,
-              fontSize: "0.75rem",
-              color: "text.secondary",
-            }}
-          >
-            <Typography variant="caption">
-              Создана: {new Date(service.createdAt).toLocaleDateString("ru-RU")}
-            </Typography>
-            {service.updatedAt !== service.createdAt && (
-              <Typography variant="caption">
-                Обновлена:{" "}
-                {new Date(service.updatedAt).toLocaleDateString("ru-RU")}
-              </Typography>
-            )}
-          </Box>
-        </Stack>
-      </CardContent>
-
-      <CardActions sx={{ justifyContent: "space-between", px: 2, pb: 2 }}>
-        <Button
-          size="small"
-          startIcon={service.isActive ? <VisibilityOff /> : <Visibility />}
-          onClick={() => onToggleActive(service)}
-          color={service.isActive ? "warning" : "success"}
-        >
-          {service.isActive ? "Деактивировать" : "Активировать"}
-        </Button>
-
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            size="small"
-            startIcon={<Edit />}
-            onClick={() => onEdit(service)}
-            variant="outlined"
-          >
-            Редактировать
-          </Button>
-          <Button
-            size="small"
-            startIcon={<Delete />}
-            onClick={() => onDelete(service)}
-            color="error"
-            variant="outlined"
-          >
-            Удалить
-          </Button>
+          <Typography variant="body2" color="text.secondary">
+            •
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {formatPrice(price)}
+          </Typography>
         </Box>
-      </CardActions>
+
+        {/* Description */}
+        {description && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 3, flexGrow: 1 }}
+          >
+            {description}
+          </Typography>
+        )}
+
+        {/* CTA Button */}
+        <Button
+          variant="contained"
+          fullWidth
+          sx={{
+            mt: "auto",
+            borderRadius: 2,
+          }}
+        >
+          Записаться
+        </Button>
+      </CardContent>
     </Card>
   );
-}
+};

@@ -1,60 +1,29 @@
-import { AppBar, Box, Container, Toolbar } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
+import { CssBaseline, Box } from "@mui/material";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Logo } from "../components/Logo";
-import { Navigation } from "../components/Navigation";
-import { MasterSkeleton } from "../components/MasterSkeleton";
-import { Landing } from "../pages/Landing";
+import { Header } from "../components/Header";
+import { Dashboard } from "../pages/Dashboard";
 import { MasterPage } from "../pages/MasterPage";
-import { ServicesTestPage } from "../pages/ServicesTestPage";
-import { ServicesManagementPage } from "../pages/ServicesManagementPage";
+import { NotFound } from "../pages/NotFound";
+import theme from "../theme";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Box sx={{ minHeight: "100dvh", bgcolor: "background.default" }}>
-        <AppBar position="static" color="transparent" elevation={0}>
-          <Toolbar sx={{ justifyContent: "space-between" }}>
-            <Logo />
-            <Navigation />
-          </Toolbar>
-        </AppBar>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Container maxWidth="md" sx={{ py: 4 }}>
-                <Landing />
-              </Container>
-            }
-          />
-          <Route path="/services" element={<ServicesManagementPage />} />
-          <Route
-            path="/test"
-            element={
-              <Container maxWidth="md" sx={{ py: 4 }}>
-                <ServicesTestPage />
-              </Container>
-            }
-          />
-          <Route
-            path=":slug"
-            element={
-              <Container maxWidth="md" sx={{ py: 4 }}>
-                <MasterPage />
-              </Container>
-            }
-          />
-          {/* Фолбек на скелет */}
-          <Route
-            path="*"
-            element={
-              <Container maxWidth="md" sx={{ py: 4 }}>
-                <MasterSkeleton />
-              </Container>
-            }
-          />
-        </Routes>
-      </Box>
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+          <Header />
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/services" element={<Dashboard />} />
+            <Route path="/appointments" element={<Dashboard />} />
+            <Route path="/:slug" element={<MasterPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Box>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
