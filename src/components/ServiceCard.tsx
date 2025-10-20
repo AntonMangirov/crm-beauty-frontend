@@ -3,14 +3,14 @@ import { Card, CardContent, Typography, Box, Button } from "@mui/material";
 interface ServiceCardProps {
   name: string;
   price: number;
-  duration?: number;
+  durationMin?: number;
   description?: string;
 }
 
 export const ServiceCard: React.FC<ServiceCardProps> = ({
   name,
   price,
-  duration,
+  durationMin,
   description,
 }) => {
   const formatPrice = (price: number) => {
@@ -40,11 +40,11 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
           {name}
         </Typography>
 
-        {/* Subline: duration • price */}
+        {/* Subline: durationMin • price */}
         <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-          {duration && (
+          {durationMin && (
             <Typography variant="body2" color="text.secondary">
-              {formatDuration(duration)}
+              {formatDuration(durationMin)}
             </Typography>
           )}
           <Typography variant="body2" color="text.secondary">

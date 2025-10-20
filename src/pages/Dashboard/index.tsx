@@ -61,7 +61,7 @@ export const Dashboard: React.FC = () => {
                 <ServiceCard
                   name={service.name}
                   price={service.price}
-                  duration={service.duration}
+                  durationMin={service.durationMin}
                   description={service.description}
                 />
               </Grid>

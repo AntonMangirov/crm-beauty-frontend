@@ -4,7 +4,7 @@ export interface Service {
   name: string;
   description: string;
   price: number;
-  duration: number;
+  durationMin: number; // Изменено с duration на durationMin
   category: string;
   isActive: boolean;
 }
@@ -16,7 +16,7 @@ const mockServices: Service[] = [
     name: "Маникюр",
     description: "Классический маникюр",
     price: 1500,
-    duration: 60,
+    durationMin: 60,
     category: "Маникюр",
     isActive: true,
   },
@@ -25,7 +25,7 @@ const mockServices: Service[] = [
     name: "Педикюр",
     description: "Аппаратный педикюр",
     price: 2000,
-    duration: 90,
+    durationMin: 90,
     category: "Педикюр",
     isActive: true,
   },
