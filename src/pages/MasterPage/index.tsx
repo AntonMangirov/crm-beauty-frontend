@@ -31,11 +31,6 @@ export const MasterPage: React.FC = () => {
     }
   };
 
-  const handleBookService = (serviceId: string) => {
-    console.log("Запись на услугу:", serviceId);
-    // TODO: Реализовать логику записи
-  };
-
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4, textAlign: "center" }}>
@@ -62,5 +57,5 @@ export const MasterPage: React.FC = () => {
     );
   }
 
-  return <MasterProfile master={master} onBookService={handleBookService} />;
+  return <MasterProfile master={master} masterSlug={slug || ""} />;
 };

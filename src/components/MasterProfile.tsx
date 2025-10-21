@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardMedia,
@@ -8,17 +8,46 @@ import {
   Grid,
   Avatar,
   Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
 } from "@mui/material";
-import { LocationOn as LocationIcon } from "@mui/icons-material";
+import {
+  LocationOn as LocationIcon,
+  Close as CloseIcon,
+} from "@mui/icons-material";
 import { ServiceCard } from "./ServiceCard";
+import { BookingWizard } from "./BookingWizard/BookingWizard";
 import type { Master } from "../api/masters";
 
 interface MasterProfileProps {
   master: Master;
-  onBookService?: (serviceId: string) => void;
+  masterSlug: string;
 }
 
-export const MasterProfile: React.FC<MasterProfileProps> = ({ master }) => {
+export const MasterProfile: React.FC<MasterProfileProps> = ({
+  master,
+  masterSlug,
+}) => {
+  const [bookingOpen, setBookingOpen] = useState(false);
+
+  const handleBookingOpen = () => {
+    setBookingOpen(true);
+  };
+
+  const handleBookingClose = () => {
+    setBookingOpen(false);
+  };
+
+  const handleBookingComplete = (appointmentId: string) => {
+    console.log("Запись создана:", appointmentId);
+    setBookingOpen(false);
+
+    // Показываем уведомление об успешной записи
+    alert(`Запись успешно создана! ID записи: ${appointmentId}`);
+  };
+
   const formatPrice = (priceString: string) => {
     const price = parseFloat(priceString);
     return new Intl.NumberFormat("ru-RU", {
@@ -139,6 +168,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({ master }) => {
         <Button
           variant="contained"
           size="large"
+          onClick={handleBookingOpen}
           sx={{
             px: 4,
             py: 1.5,
@@ -149,6 +179,43 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({ master }) => {
           Записаться на услугу
         </Button>
       </Card>
+
+      {/* Dialog с BookingWizard */}
+      <Dialog
+        open={bookingOpen}
+        onClose={handleBookingClose}
+        maxWidth="md"
+        fullWidth
+        fullScreen
+        PaperProps={{
+          sx: {
+            height: "100vh",
+            maxHeight: "100vh",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            Запись к {master.name}
+          </Typography>
+          <IconButton onClick={handleBookingClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 0 }}>
+          <BookingWizard
+            masterSlug={masterSlug}
+            onBookingComplete={handleBookingComplete}
+          />
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 };
