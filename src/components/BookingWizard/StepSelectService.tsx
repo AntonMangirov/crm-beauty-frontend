@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Box,
   Typography,
@@ -24,33 +24,25 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
   onServiceToggle,
   onNext,
 }) => {
-  const [localSelected, setLocalSelected] =
-    useState<string[]>(selectedServices);
-
   const handleServiceToggle = (serviceId: string) => {
-    const newSelected = localSelected.includes(serviceId)
-      ? localSelected.filter((id) => id !== serviceId)
-      : [...localSelected, serviceId];
-
-    setLocalSelected(newSelected);
     onServiceToggle(serviceId);
   };
 
   const handleNext = () => {
-    if (localSelected.length > 0) {
+    if (selectedServices.length > 0) {
       onNext();
     }
   };
 
   const getTotalPrice = () => {
-    return localSelected.reduce((total, serviceId) => {
+    return selectedServices.reduce((total, serviceId) => {
       const service = services.find((s) => s.id === serviceId);
       return total + (service ? parseFloat(service.price) : 0);
     }, 0);
   };
 
   const getTotalDuration = () => {
-    return localSelected.reduce((total, serviceId) => {
+    return selectedServices.reduce((total, serviceId) => {
       const service = services.find((s) => s.id === serviceId);
       return total + (service ? service.durationMin : 0);
     }, 0);
@@ -89,10 +81,10 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
             <Card
               sx={{
                 cursor: "pointer",
-                border: localSelected.includes(service.id)
+                border: selectedServices.includes(service.id)
                   ? "2px solid"
                   : "1px solid",
-                borderColor: localSelected.includes(service.id)
+                borderColor: selectedServices.includes(service.id)
                   ? "primary.main"
                   : "divider",
                 transition: "all 0.2s ease-in-out",
@@ -106,8 +98,12 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
               <CardContent>
                 <Box sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}>
                   <Checkbox
-                    checked={localSelected.includes(service.id)}
-                    onChange={() => handleServiceToggle(service.id)}
+                    checked={selectedServices.includes(service.id)}
+                    onChange={(e) => {
+                      e.stopPropagation(); // Предотвращаем всплытие события
+                      handleServiceToggle(service.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()} // Предотвращаем всплытие при клике
                     sx={{ mr: 1, mt: -0.5 }}
                   />
                   <Box sx={{ flexGrow: 1 }}>
@@ -130,14 +126,14 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
         ))}
       </Grid>
 
-      {localSelected.length > 0 && (
+      {selectedServices.length > 0 && (
         <Box sx={{ mt: 4, p: 3, bgcolor: "background.paper", borderRadius: 2 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
             Выбранные услуги
           </Typography>
 
           <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
-            {localSelected.map((serviceId) => {
+            {selectedServices.map((serviceId) => {
               const service = services.find((s) => s.id === serviceId);
               return service ? (
                 <Chip
@@ -171,7 +167,7 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
               variant="contained"
               size="large"
               onClick={handleNext}
-              disabled={localSelected.length === 0}
+              disabled={selectedServices.length === 0}
               sx={{ textTransform: "none", px: 4 }}
             >
               Продолжить

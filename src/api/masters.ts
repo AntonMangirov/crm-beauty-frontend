@@ -19,7 +19,7 @@ export interface BookingRequest {
   name: string;
   phone: string;
   serviceId: string;
-  startAt: Date;
+  startAt: string; // ISO строка
   comment?: string;
 }
 
@@ -44,7 +44,7 @@ export const mastersApi = {
       name: bookingData.name,
       phone: bookingData.phone,
       serviceId: bookingData.serviceId,
-      startAt: bookingData.startAt.toISOString(),
+      startAt: bookingData.startAt,
       comment: bookingData.comment,
     });
     return response.data;

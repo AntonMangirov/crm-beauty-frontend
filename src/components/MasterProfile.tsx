@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Card,
   CardMedia,
@@ -30,7 +31,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   master,
   masterSlug,
 }) => {
+  const location = useLocation();
   const [bookingOpen, setBookingOpen] = useState(false);
+
+  // Закрываем диалог при изменении маршрута (например, при переходе на страницу успеха)
+  useEffect(() => {
+    if (location.pathname !== `/${masterSlug}`) {
+      setBookingOpen(false);
+    }
+  }, [location.pathname, masterSlug]);
 
   const handleBookingOpen = () => {
     setBookingOpen(true);
@@ -42,10 +51,6 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
 
   const handleBookingComplete = (appointmentId: string) => {
     console.log("Запись создана:", appointmentId);
-    setBookingOpen(false);
-
-    // Показываем уведомление об успешной записи
-    alert(`Запись успешно создана! ID записи: ${appointmentId}`);
   };
 
   const formatPrice = (priceString: string) => {
@@ -201,7 +206,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             alignItems: "center",
           }}
         >
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          <Typography component="span" variant="h5" sx={{ fontWeight: 600 }}>
             Запись к {master.name}
           </Typography>
           <IconButton onClick={handleBookingClose} size="small">
@@ -213,6 +218,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           <BookingWizard
             masterSlug={masterSlug}
             onBookingComplete={handleBookingComplete}
+            onClose={handleBookingClose}
           />
         </DialogContent>
       </Dialog>

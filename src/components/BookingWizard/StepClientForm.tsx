@@ -8,6 +8,7 @@ import {
   CardContent,
   Grid,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
   Person as PersonIcon,
@@ -56,7 +57,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
 
     if (!formData.phone.trim()) {
       newErrors.phone = "Телефон обязателен";
-    } else if (!/^[\+]?[0-9\s\-\(\)]{10,}$/.test(formData.phone.trim())) {
+    } else if (!/^[+]?[0-9\s-()]{10,}$/.test(formData.phone.trim())) {
       newErrors.phone = "Неверный формат телефона";
     }
 
@@ -65,7 +66,9 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log("Результат валидации:", { isValid, errors: newErrors });
+    return isValid;
   };
 
   const handleInputChange = (field: keyof ClientFormData, value: string) => {
@@ -208,6 +211,20 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               label="Телефон *"
               value={formData.phone}
               onChange={(e) => handleInputChange("phone", e.target.value)}
+              onFocus={(e) => {
+                const value = e.target.value.trim();
+                if (!value) {
+                  handleInputChange("phone", "+7");
+                } else if (value.startsWith("+")) {
+                  return;
+                } else if (/^8/.test(value)) {
+                  handleInputChange("phone", "+7" + value.slice(1));
+                } else if (/^9/.test(value)) {
+                  handleInputChange("phone", "+7" + value);
+                } else if (/^[0-9]/.test(value)) {
+                  handleInputChange("phone", "+7" + value);
+                }
+              }}
               error={!!errors.phone}
               helperText={errors.phone}
               InputProps={{
@@ -240,6 +257,28 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
             />
           </Grid>
         </Grid>
+
+        {isSubmitting && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              mt: 3,
+              py: 2,
+              bgcolor: "background.paper",
+              borderRadius: 2,
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <CircularProgress size={24} />
+            <Typography variant="body1" sx={{ color: "text.secondary" }}>
+              Создание записи...
+            </Typography>
+          </Box>
+        )}
 
         {/* Навигация */}
         <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
