@@ -20,6 +20,7 @@ import {
 } from "@mui/icons-material";
 import { ServiceCard } from "./ServiceCard";
 import { BookingWizard } from "./BookingWizard/BookingWizard";
+import { LocationMap } from "./LocationMap";
 import type { Master } from "../api/masters";
 
 interface MasterProfileProps {
@@ -139,6 +140,22 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           </Box>
         </Box>
       </Card>
+
+      {/* Карта (если есть координаты) */}
+      {master.lat && master.lng && (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+            Расположение
+          </Typography>
+          <LocationMap
+            lat={master.lat}
+            lng={master.lng}
+            address={master.address}
+            masterName={master.name}
+            height={400}
+          />
+        </Box>
+      )}
 
       {/* Услуги */}
       <Box sx={{ mb: 4 }}>
