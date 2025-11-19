@@ -27,7 +27,7 @@ interface LocationMapProps {
   lng: number;
   address?: string | null;
   masterName?: string;
-  height?: string | number;
+  height?: string | number | { xs?: number; sm?: number; md?: number };
 }
 
 // Компонент для обновления центра карты при изменении координат
@@ -48,17 +48,32 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   masterName,
   height = 400,
 }) => {
+  // Обработка height для адаптивности
+  const getHeight = () => {
+    if (typeof height === "object" && height !== null) {
+      return {
+        xs: `${height.xs || 300}px`,
+        sm: `${height.sm || 400}px`,
+      };
+    }
+    if (typeof height === "number") {
+      return `${height}px`;
+    }
+    return height;
+  };
 
   return (
     <Box
       sx={{
         width: "100%",
-        height: typeof height === "number" ? `${height}px` : height,
-        borderRadius: 2,
+        height: getHeight(),
+        borderRadius: { xs: 1, sm: 2 },
         overflow: "hidden",
         border: "1px solid",
         borderColor: "divider",
         boxShadow: 1,
+        // Адаптивность для мобильных
+        minHeight: { xs: 300, sm: 400 },
       }}
     >
       <MapContainer
@@ -66,6 +81,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         zoom={15}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={true}
+        // Отключаем zoom на мобильных для лучшего UX
+        touchZoom={true}
+        doubleClickZoom={true}
       >
         <MapUpdater lat={lat} lng={lng} />
         <TileLayer

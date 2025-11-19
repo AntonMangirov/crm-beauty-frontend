@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardMedia,
@@ -9,17 +9,9 @@ import {
   Grid,
   Avatar,
   Container,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
 } from "@mui/material";
-import {
-  LocationOn as LocationIcon,
-  Close as CloseIcon,
-} from "@mui/icons-material";
+import { LocationOn as LocationIcon } from "@mui/icons-material";
 import { ServiceCard } from "./ServiceCard";
-import { BookingWizard } from "./BookingWizard/BookingWizard";
 import { LocationMap } from "./LocationMap";
 import type { Master } from "../api/masters";
 
@@ -32,26 +24,10 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   master,
   masterSlug,
 }) => {
-  const location = useLocation();
-  const [bookingOpen, setBookingOpen] = useState(false);
+  const navigate = useNavigate();
 
-  // Закрываем диалог при изменении маршрута (например, при переходе на страницу успеха)
-  useEffect(() => {
-    if (location.pathname !== `/${masterSlug}`) {
-      setBookingOpen(false);
-    }
-  }, [location.pathname, masterSlug]);
-
-  const handleBookingOpen = () => {
-    setBookingOpen(true);
-  };
-
-  const handleBookingClose = () => {
-    setBookingOpen(false);
-  };
-
-  const handleBookingComplete = (appointmentId: string) => {
-    console.log("Запись создана:", appointmentId);
+  const handleBookClick = () => {
+    navigate(`/${masterSlug}/book`);
   };
 
   const formatPrice = (priceString: string) => {
@@ -63,15 +39,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
       {/* Hero Section */}
-      <Card sx={{ mb: 4, overflow: "hidden" }}>
+      <Card sx={{ mb: { xs: 3, sm: 4 }, overflow: "hidden" }}>
         <Box sx={{ position: "relative" }}>
           {/* Фото мастера */}
           {master.photoUrl ? (
             <CardMedia
               component="img"
-              height="300"
+              height={{ xs: 200, sm: 300 }}
               image={master.photoUrl}
               alt={master.name}
               sx={{
@@ -82,7 +58,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           ) : (
             <Box
               sx={{
-                height: 300,
+                height: { xs: 200, sm: 300 },
                 bgcolor: "primary.main",
                 display: "flex",
                 alignItems: "center",
@@ -91,11 +67,11 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             >
               <Avatar
                 sx={{
-                  width: 120,
-                  height: 120,
+                  width: { xs: 80, sm: 120 },
+                  height: { xs: 80, sm: 120 },
                   bgcolor: "white",
                   color: "primary.main",
-                  fontSize: "3rem",
+                  fontSize: { xs: "2rem", sm: "3rem" },
                   fontWeight: 600,
                 }}
               >
@@ -119,12 +95,26 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
               color: "white",
             }}
           >
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 700,
+                mb: 1,
+                fontSize: { xs: "1.75rem", sm: "2.5rem", md: "3rem" },
+              }}
+            >
               {master.name}
             </Typography>
 
             {master.description && (
-              <Typography variant="body1" sx={{ mb: 2, opacity: 0.9 }}>
+              <Typography
+                variant="body1"
+                sx={{
+                  mb: 2,
+                  opacity: 0.9,
+                  fontSize: { xs: "0.875rem", sm: "1rem" },
+                }}
+              >
                 {master.description}
               </Typography>
             )}
@@ -143,8 +133,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
 
       {/* Карта (если есть координаты) */}
       {master.lat && master.lng && (
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+        <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+          <Typography
+            variant="h4"
+            sx={{
+              mb: { xs: 2, sm: 3 },
+              fontWeight: 600,
+              fontSize: { xs: "1.75rem", sm: "2.125rem" },
+            }}
+          >
             Расположение
           </Typography>
           <LocationMap
@@ -152,14 +149,21 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             lng={master.lng}
             address={master.address}
             masterName={master.name}
-            height={400}
+            height={{ xs: 300, sm: 400 }}
           />
         </Box>
       )}
 
       {/* Услуги */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+        <Typography
+          variant="h4"
+          sx={{
+            mb: { xs: 2, sm: 3 },
+            fontWeight: 600,
+            fontSize: { xs: "1.75rem", sm: "2.125rem" },
+          }}
+        >
           Услуги
         </Typography>
 
@@ -180,65 +184,42 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
       </Box>
 
       {/* CTA Section */}
-      <Card sx={{ p: 4, textAlign: "center" }}>
-        <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
+      <Card sx={{ p: { xs: 3, sm: 4 }, textAlign: "center" }}>
+        <Typography
+          variant="h5"
+          sx={{
+            mb: { xs: 1.5, sm: 2 },
+            fontWeight: 600,
+            fontSize: { xs: "1.5rem", sm: "1.75rem" },
+          }}
+        >
           Готовы записаться?
         </Typography>
-        <Typography variant="body1" sx={{ mb: 3, color: "text.secondary" }}>
+        <Typography
+          variant="body1"
+          sx={{
+            mb: { xs: 2, sm: 3 },
+            color: "text.secondary",
+            fontSize: { xs: "0.875rem", sm: "1rem" },
+          }}
+        >
           Выберите услугу и удобное время для записи
         </Typography>
         <Button
           variant="contained"
           size="large"
-          onClick={handleBookingOpen}
+          onClick={handleBookClick}
+          fullWidth={{ xs: true, sm: false }}
           sx={{
-            px: 4,
+            px: { xs: 2, sm: 4 },
             py: 1.5,
             textTransform: "none",
-            fontSize: "1.1rem",
+            fontSize: { xs: "1rem", sm: "1.1rem" },
           }}
         >
-          Записаться на услугу
+          Записаться
         </Button>
       </Card>
-
-      {/* Dialog с BookingWizard */}
-      <Dialog
-        open={bookingOpen}
-        onClose={handleBookingClose}
-        maxWidth="md"
-        fullWidth
-        fullScreen
-        PaperProps={{
-          sx: {
-            height: "100vh",
-            maxHeight: "100vh",
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography component="span" variant="h5" sx={{ fontWeight: 600 }}>
-            Запись к {master.name}
-          </Typography>
-          <IconButton onClick={handleBookingClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 0 }}>
-          <BookingWizard
-            masterSlug={masterSlug}
-            onBookingComplete={handleBookingComplete}
-            onClose={handleBookingClose}
-          />
-        </DialogContent>
-      </Dialog>
     </Container>
   );
 };

@@ -5,6 +5,7 @@ import { Header } from "../components/Header";
 import { SnackbarProvider } from "../components/SnackbarProvider";
 import { Dashboard } from "../pages/Dashboard";
 import { MasterPage } from "../pages/MasterPage";
+import { BookPage } from "../pages/BookPage";
 import { BookingSuccess } from "../pages/BookingSuccess";
 import { NotFound } from "../pages/NotFound";
 import theme from "../theme";
@@ -23,6 +24,7 @@ export default function App() {
               <Route path="/services" element={<Dashboard />} />
               <Route path="/appointments" element={<Dashboard />} />
               <Route path="/booking-success" element={<BookingSuccess />} />
+              <Route path="/:slug/book" element={<BookPage />} />
               <Route path="/:slug" element={<MasterPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
