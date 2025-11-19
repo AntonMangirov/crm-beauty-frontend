@@ -1,10 +1,13 @@
 import { apiClient } from "./index";
 
 export interface Master {
+  slug: string;
   name: string;
   photoUrl: string | null;
-  description: string;
-  address: string;
+  description: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   services: Service[];
 }
 
