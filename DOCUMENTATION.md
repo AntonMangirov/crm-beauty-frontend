@@ -13,6 +13,7 @@ SPA для клиентов и мастеров: просмотр профиле
 - Leaflet + react-leaflet для карт (OpenStreetMap)
 - React Router для навигации
 - React Hook Form для форм
+- Google reCAPTCHA v3 для защиты от ботов
 
 ### Структура
 
@@ -42,6 +43,20 @@ SPA для клиентов и мастеров: просмотр профиле
 - `src/api/index.ts` — базовая конфигурация клиента
 
 Для приватных запросов (например, список встреч мастера) требуется передавать JWT токен в `Authorization: Bearer <token>`.
+
+### Утилиты
+
+- `src/utils/recaptcha.ts` — получение токена Google reCAPTCHA v3
+- `src/utils/loadRecaptcha.ts` — динамическая загрузка скрипта reCAPTCHA
+
+### Переменные окружения
+
+Создайте файл `.env` на основе `.env.example`:
+
+- `VITE_API_URL` — URL бэкенда (по умолчанию `http://localhost:3000`)
+- `VITE_RECAPTCHA_SITE_KEY` — Site Key для Google reCAPTCHA v3 (получите на https://www.google.com/recaptcha/admin)
+
+**Примечание:** В режиме разработки, если `VITE_RECAPTCHA_SITE_KEY` не установлен, reCAPTCHA токен не будет отправляться, и бэкенд может пропустить проверку (если настроено).
 
 ### Встречи (Appointments)
 

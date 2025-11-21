@@ -24,6 +24,7 @@ export interface BookingRequest {
   serviceId: string;
   startAt: string; // ISO строка
   comment?: string;
+  recaptchaToken?: string; // reCAPTCHA v3 токен
 }
 
 export interface BookingResponse {
@@ -33,9 +34,30 @@ export interface BookingResponse {
   status: string;
 }
 
+export interface TimeslotsResponse {
+  available: string[]; // ISO datetime strings
+}
+
 export const mastersApi = {
   getBySlug: async (slug: string): Promise<Master> => {
     const response = await apiClient.get(`/api/public/${slug}`);
+    return response.data;
+  },
+
+  getTimeslots: async (
+    slug: string,
+    date?: string,
+    serviceId?: string
+  ): Promise<TimeslotsResponse> => {
+    const params = new URLSearchParams();
+    if (date) params.append("date", date);
+    if (serviceId) params.append("serviceId", serviceId);
+
+    const queryString = params.toString();
+    const url = `/api/public/${slug}/timeslots${
+      queryString ? `?${queryString}` : ""
+    }`;
+    const response = await apiClient.get(url);
     return response.data;
   },
 
@@ -49,6 +71,7 @@ export const mastersApi = {
       serviceId: bookingData.serviceId,
       startAt: bookingData.startAt,
       comment: bookingData.comment,
+      recaptchaToken: bookingData.recaptchaToken,
     });
     return response.data;
   },

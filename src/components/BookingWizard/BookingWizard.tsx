@@ -17,6 +17,7 @@ import type { ClientFormData } from "./StepClientForm";
 import { mastersApi } from "../../api/masters";
 import type { Master, Service } from "../../api/masters";
 import { useSnackbar } from "../SnackbarProvider";
+import { getRecaptchaToken } from "../../utils/recaptcha";
 
 interface BookingWizardProps {
   masterSlug: string;
@@ -106,13 +107,19 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
     setError(null);
 
     try {
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth() + 1;
-      const day = selectedDate.getDate();
+      // Преобразуем выбранное время обратно в UTC
+      // selectedTime в формате "HH:MM" (UTC время из API)
+      // selectedDate - локальная дата из DatePicker
       const [hours, minutes] = selectedTime.split(":").map(Number);
+      
+      // Используем локальные компоненты даты (DatePicker возвращает локальную дату)
+      // и создаём UTC дату с UTC временем
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
 
       const startAtDate = new Date(
-        Date.UTC(year, month - 1, day, hours, minutes, 0, 0)
+        Date.UTC(year, month, day, hours, minutes, 0, 0)
       );
 
       if (isNaN(startAtDate.getTime())) {
@@ -121,12 +128,16 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         );
       }
 
+      // Получаем токен reCAPTCHA перед отправкой
+      const recaptchaToken = await getRecaptchaToken('booking');
+
       const bookingData = {
         name: formData.name,
         phone: formData.phone,
         serviceId: selectedServices[0],
         startAt: startAtDate.toISOString(),
         comment: formData.comment || undefined,
+        recaptchaToken: recaptchaToken || undefined,
       };
 
       const response = await mastersApi.bookAppointment(
@@ -264,6 +275,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
         {activeStep === 1 && (
           <StepSelectTime
+            masterSlug={masterSlug}
             selectedServices={getSelectedServicesData()}
             selectedDate={selectedDate}
             selectedTime={selectedTime}

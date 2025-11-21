@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -7,6 +7,8 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -17,8 +19,10 @@ import {
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
 import type { Service } from "../../api/masters";
+import { mastersApi } from "../../api/masters";
 
 interface StepSelectTimeProps {
+  masterSlug: string;
   selectedServices: Service[];
   selectedDate: Date | null;
   selectedTime: string;
@@ -29,6 +33,7 @@ interface StepSelectTimeProps {
 }
 
 export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
+  masterSlug,
   selectedServices,
   selectedDate,
   selectedTime,
@@ -39,10 +44,15 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
 }) => {
   const [localDate, setLocalDate] = useState<Date | null>(selectedDate);
   const [localTime, setLocalTime] = useState<string>(selectedTime);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
 
   const handleDateChange = (date: Date | null) => {
     setLocalDate(date);
     onDateChange(date);
+    setLocalTime(""); // Сбрасываем выбранное время при смене даты
+    onTimeChange("");
   };
 
   const handleTimeChange = (time: string) => {
@@ -56,16 +66,56 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
     }
   };
 
-  // Генерируем доступные временные слоты
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 9; hour <= 18; hour++) {
-      slots.push(`${hour.toString().padStart(2, "0")}:00`);
+  // Загружаем доступные слоты при изменении даты или услуг
+  useEffect(() => {
+    if (!localDate) {
+      setAvailableSlots([]);
+      return;
     }
-    return slots;
-  };
 
-  const timeSlots = generateTimeSlots();
+    const loadTimeslots = async () => {
+      setLoadingSlots(true);
+      setSlotsError(null);
+
+      try {
+        // Форматируем дату в YYYY-MM-DD
+        const dateStr = localDate.toISOString().split("T")[0];
+
+        // Используем первую выбранную услугу для учёта длительности
+        const serviceId =
+          selectedServices.length > 0 ? selectedServices[0].id : undefined;
+
+        const response = await mastersApi.getTimeslots(
+          masterSlug,
+          dateStr,
+          serviceId
+        );
+
+        // Преобразуем ISO строки в формат HH:MM для отображения
+        const formattedSlots = response.available.map((isoString) => {
+          const date = new Date(isoString);
+          const hours = date.getUTCHours().toString().padStart(2, "0");
+          const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+          return `${hours}:${minutes}`;
+        });
+
+        setAvailableSlots(formattedSlots);
+      } catch (error) {
+        console.error("Ошибка загрузки временных слотов:", error);
+        setSlotsError("Не удалось загрузить доступное время");
+        // Fallback к хардкоду в случае ошибки
+        const fallbackSlots = [];
+        for (let hour = 9; hour <= 18; hour++) {
+          fallbackSlots.push(`${hour.toString().padStart(2, "0")}:00`);
+        }
+        setAvailableSlots(fallbackSlots);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    loadTimeslots();
+  }, [localDate, masterSlug, selectedServices]);
 
   const getTotalDuration = () => {
     return selectedServices.reduce(
@@ -181,22 +231,42 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                   </Typography>
                 </Box>
 
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {timeSlots.map((time) => (
-                    <Button
-                      key={time}
-                      variant={localTime === time ? "contained" : "outlined"}
-                      size="small"
-                      onClick={() => handleTimeChange(time)}
-                      sx={{
-                        minWidth: 80,
-                        textTransform: "none",
-                      }}
-                    >
-                      {time}
-                    </Button>
-                  ))}
-                </Box>
+                {loadingSlots ? (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", py: 3 }}
+                  >
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : slotsError ? (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    {slotsError}
+                  </Alert>
+                ) : availableSlots.length === 0 ? (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ py: 2 }}
+                  >
+                    Нет доступного времени на выбранную дату
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    {availableSlots.map((time) => (
+                      <Button
+                        key={time}
+                        variant={localTime === time ? "contained" : "outlined"}
+                        size="small"
+                        onClick={() => handleTimeChange(time)}
+                        sx={{
+                          minWidth: 80,
+                          textTransform: "none",
+                        }}
+                      >
+                        {time}
+                      </Button>
+                    ))}
+                  </Box>
+                )}
 
                 {localTime && (
                   <Box
