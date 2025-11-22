@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import {
   Box,
   Container,
@@ -24,6 +25,7 @@ import {
 } from "@mui/icons-material";
 import { Sidebar } from "../../components/Sidebar";
 import { LocationMapPreview } from "../../components/LocationMapPreview";
+import { ServicesPage } from "../ServicesPage";
 import {
   meApi,
   type MeResponse,
@@ -32,7 +34,7 @@ import {
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { normalizeImageUrl } from "../../utils/imageUrl";
 
-export const MasterCabinet: React.FC = () => {
+export const ProfilePage: React.FC = () => {
   const [master, setMaster] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,17 +158,7 @@ export const MasterCabinet: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          bgcolor: "background.default",
-          ml: { md: "240px" },
-        }}
-      >
-        <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
           {/* Hero Section */}
           <Card
             sx={{
@@ -528,6 +520,27 @@ export const MasterCabinet: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+    </Container>
+  );
+};
+
+export const MasterCabinet: React.FC = () => {
+  return (
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <Sidebar />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          bgcolor: "background.default",
+          ml: { md: "240px" },
+        }}
+      >
+        <Routes>
+          <Route path="/" element={<ProfilePage />} />
+          <Route path="/services" element={<ServicesPage />} />
+        </Routes>
+      </Box>
     </Box>
   );
 };

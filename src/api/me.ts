@@ -73,6 +73,33 @@ export interface AppointmentsFilter {
   clientId?: string;
 }
 
+export interface Service {
+  id: string;
+  masterId: string;
+  name: string;
+  price: number;
+  durationMin: number;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateServiceRequest {
+  name: string;
+  price: number;
+  durationMin: number;
+  description?: string;
+}
+
+export interface UpdateServiceRequest {
+  name?: string;
+  price?: number;
+  durationMin?: number;
+  description?: string;
+  isActive?: boolean;
+}
+
 export const meApi = {
   /**
    * GET /api/me
@@ -126,6 +153,44 @@ export const meApi = {
     const url = `/api/me/appointments${queryString ? `?${queryString}` : ""}`;
     const response = await apiClient.get(url);
     return response.data;
+  },
+
+  /**
+   * GET /api/me/services
+   * Получить все услуги мастера
+   */
+  getServices: async (): Promise<Service[]> => {
+    const response = await apiClient.get("/api/me/services");
+    return response.data;
+  },
+
+  /**
+   * POST /api/me/services
+   * Создать новую услугу
+   */
+  createService: async (data: CreateServiceRequest): Promise<Service> => {
+    const response = await apiClient.post("/api/me/services", data);
+    return response.data;
+  },
+
+  /**
+   * PUT /api/me/services/:id
+   * Обновить услугу
+   */
+  updateService: async (
+    id: string,
+    data: UpdateServiceRequest
+  ): Promise<Service> => {
+    const response = await apiClient.put(`/api/me/services/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * DELETE /api/me/services/:id
+   * Удалить услугу
+   */
+  deleteService: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/me/services/${id}`);
   },
 };
 
