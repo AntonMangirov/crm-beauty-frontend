@@ -36,9 +36,12 @@ export const Login: React.FC = () => {
       localStorage.setItem("authToken", token);
       showSnackbar("Успешный вход!", "success");
       navigate("/master");
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error || "Ошибка входа. Проверьте данные.";
+    } catch (err: unknown) {
+      let errorMessage = "Ошибка входа. Проверьте данные.";
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { error?: string } } };
+        errorMessage = axiosError.response?.data?.error || errorMessage;
+      }
       setError(errorMessage);
       showSnackbar(errorMessage, "error");
     } finally {

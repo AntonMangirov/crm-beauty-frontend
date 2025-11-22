@@ -42,7 +42,7 @@ const menuItems: MenuItem[] = [
   { label: "Настройки", icon: <SettingsIcon />, path: "/master/settings" },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ open = true, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,7 +77,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open = true, onClose }) => {
         <Divider />
         <List>
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            const isActive =
+              location.pathname === item.path ||
+              location.pathname.startsWith(item.path + "/");
             return (
               <ListItem key={item.path} disablePadding>
                 <ListItemButton
@@ -98,7 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ open = true, onClose }) => {
                 >
                   <ListItemIcon
                     sx={{
-                      color: isActive ? "primary.contrastText" : "text.secondary",
+                      color: isActive
+                        ? "primary.contrastText"
+                        : "text.secondary",
                       minWidth: 40,
                     }}
                   >
@@ -114,4 +118,3 @@ export const Sidebar: React.FC<SidebarProps> = ({ open = true, onClose }) => {
     </Drawer>
   );
 };
-

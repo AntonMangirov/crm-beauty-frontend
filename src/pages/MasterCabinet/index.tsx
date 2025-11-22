@@ -20,12 +20,17 @@ import {
   LocationOn as LocationIcon,
   Phone as PhoneIcon,
   Star as StarIcon,
+  CloudUpload as CloudUploadIcon,
 } from "@mui/icons-material";
 import { Sidebar } from "../../components/Sidebar";
-import { ServiceCard } from "../../components/ServiceCard";
 import { LocationMapPreview } from "../../components/LocationMapPreview";
-import { meApi, type MeResponse, type UpdateProfileRequest } from "../../api/me";
+import {
+  meApi,
+  type MeResponse,
+  type UpdateProfileRequest,
+} from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
+import { normalizeImageUrl } from "../../utils/imageUrl";
 
 export const MasterCabinet: React.FC = () => {
   const [master, setMaster] = useState<MeResponse | null>(null);
@@ -34,6 +39,8 @@ export const MasterCabinet: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<UpdateProfileRequest>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -58,16 +65,53 @@ export const MasterCabinet: React.FC = () => {
     if (master) {
       setEditFormData({
         name: master.name,
-        phone: master.phone,
         description: master.description,
-        photoUrl: master.photoUrl,
         address: master.address,
-        vkUrl: master.vkUrl,
-        telegramUrl: master.telegramUrl,
-        whatsappUrl: master.whatsappUrl,
-        backgroundImageUrl: master.backgroundImageUrl,
+        photoUrl: master.photoUrl,
       });
+      setPhotoPreview(master.photoUrl);
       setEditDialogOpen(true);
+    }
+  };
+
+  const handlePhotoChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем тип файла
+    if (!file.type.startsWith("image/")) {
+      showSnackbar("Выберите изображение", "error");
+      return;
+    }
+
+    // Проверяем размер файла (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showSnackbar("Размер файла не должен превышать 5MB", "error");
+      return;
+    }
+
+    // Показываем превью
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Загружаем фото
+    try {
+      setUploadingPhoto(true);
+      const updatedMaster = await meApi.uploadPhoto(file);
+      setMaster(updatedMaster);
+      setEditFormData({ ...editFormData, photoUrl: updatedMaster.photoUrl });
+      showSnackbar("Фото успешно загружено", "success");
+    } catch (err) {
+      console.error("Ошибка загрузки фото:", err);
+      showSnackbar("Не удалось загрузить фото", "error");
+      setPhotoPreview(master?.photoUrl || null);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -90,7 +134,14 @@ export const MasterCabinet: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -144,12 +195,14 @@ export const MasterCabinet: React.FC = () => {
               },
             }}
           >
-            <Box sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}>
+            <Box
+              sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}
+            >
               <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1.5 }}>
                 {/* Аватар */}
                 {master.photoUrl ? (
                   <Avatar
-                    src={master.photoUrl}
+                    src={normalizeImageUrl(master.photoUrl)}
                     alt={master.name}
                     sx={{
                       width: { xs: 64, sm: 80 },
@@ -184,7 +237,15 @@ export const MasterCabinet: React.FC = () => {
 
                 {/* Информация */}
                 <Box sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, flexWrap: "wrap" }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 0.5,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <Typography
                       variant="h5"
                       sx={{
@@ -196,7 +257,13 @@ export const MasterCabinet: React.FC = () => {
                       {master.name}
                     </Typography>
                     {master.rating !== null && master.rating !== undefined && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.25,
+                        }}
+                      >
                         <StarIcon sx={{ fontSize: 16, color: "#FFD700" }} />
                         <Typography variant="body2" sx={{ color: "white" }}>
                           {master.rating.toFixed(1)}
@@ -206,18 +273,44 @@ export const MasterCabinet: React.FC = () => {
                   </Box>
 
                   {master.address && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-                      <LocationIcon fontSize="small" sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }} />
-                      <Typography variant="caption" sx={{ color: "rgba(255, 255, 255, 0.9)" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mb: 1,
+                      }}
+                    >
+                      <LocationIcon
+                        fontSize="small"
+                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(255, 255, 255, 0.9)" }}
+                      >
                         {master.address}
                       </Typography>
                     </Box>
                   )}
 
                   {master.phone && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
-                      <PhoneIcon fontSize="small" sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }} />
-                      <Typography variant="caption" sx={{ color: "rgba(255, 255, 255, 0.9)" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mb: 1,
+                      }}
+                    >
+                      <PhoneIcon
+                        fontSize="small"
+                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(255, 255, 255, 0.9)" }}
+                      >
                         {master.phone}
                       </Typography>
                     </Box>
@@ -308,24 +401,87 @@ export const MasterCabinet: React.FC = () => {
       </Box>
 
       {/* Диалог редактирования профиля */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setPhotoPreview(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>Редактировать профиль</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
+            {/* Загрузка фото */}
+            <Grid size={{ xs: 12 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Avatar
+                  src={
+                    photoPreview
+                      ? photoPreview.startsWith("data:")
+                        ? photoPreview
+                        : normalizeImageUrl(photoPreview)
+                      : undefined
+                  }
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    mb: 2,
+                    border: "2px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </Avatar>
+                <input
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  id="photo-upload"
+                  type="file"
+                  onChange={handlePhotoChange}
+                  disabled={uploadingPhoto}
+                />
+                <label htmlFor="photo-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    disabled={uploadingPhoto}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {uploadingPhoto ? "Загрузка..." : "Загрузить фото"}
+                  </Button>
+                </label>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1 }}
+                >
+                  Максимальный размер: 5MB
+                </Typography>
+              </Box>
+            </Grid>
+
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Имя"
                 value={editFormData.name || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Телефон"
-                value={editFormData.phone || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value || null })}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, name: e.target.value })
+                }
+                required
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
@@ -335,15 +491,13 @@ export const MasterCabinet: React.FC = () => {
                 rows={4}
                 label="Описание"
                 value={editFormData.description || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value || null })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="URL фото"
-                value={editFormData.photoUrl || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, photoUrl: e.target.value || null })}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    description: e.target.value || null,
+                  })
+                }
+                placeholder="Расскажите о себе, своем опыте и специализации..."
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
@@ -351,48 +505,25 @@ export const MasterCabinet: React.FC = () => {
                 fullWidth
                 label="Адрес"
                 value={editFormData.address || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value || null })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="VK URL"
-                value={editFormData.vkUrl || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, vkUrl: e.target.value || null })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Telegram URL"
-                value={editFormData.telegramUrl || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, telegramUrl: e.target.value || null })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="WhatsApp URL"
-                value={editFormData.whatsappUrl || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, whatsappUrl: e.target.value || null })}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="URL фонового изображения"
-                value={editFormData.backgroundImageUrl || ""}
                 onChange={(e) =>
-                  setEditFormData({ ...editFormData, backgroundImageUrl: e.target.value || null })
+                  setEditFormData({
+                    ...editFormData,
+                    address: e.target.value || null,
+                  })
                 }
+                placeholder="Например: г. Москва, ул. Примерная, д. 1"
+                helperText="Адрес будет автоматически геокодирован для отображения на карте"
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleSaveProfile} variant="contained" disabled={saving}>
+          <Button
+            onClick={handleSaveProfile}
+            variant="contained"
+            disabled={saving || uploadingPhoto}
+          >
             {saving ? "Сохранение..." : "Сохранить"}
           </Button>
         </DialogActions>
@@ -400,4 +531,3 @@ export const MasterCabinet: React.FC = () => {
     </Box>
   );
 };
-

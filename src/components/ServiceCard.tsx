@@ -1,5 +1,6 @@
 import { Card, CardContent, Typography, Box, Button, CardMedia } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { normalizeImageUrl } from "../utils/imageUrl";
 
 interface ServiceCardProps {
   id: string;
@@ -44,13 +45,15 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
     return `${mins}м`;
   };
 
+  const normalizedPhotoUrl = normalizeImageUrl(photoUrl);
+
   return (
     <Card sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Фото услуги */}
-      {photoUrl && (
+      {normalizedPhotoUrl && (
         <CardMedia
           component="img"
-          image={photoUrl}
+          image={normalizedPhotoUrl}
           alt={name}
           sx={{
             height: 140,

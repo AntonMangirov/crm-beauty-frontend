@@ -32,14 +32,9 @@ export interface MeResponse {
 
 export interface UpdateProfileRequest {
   name?: string;
-  phone?: string | null;
   description?: string | null;
   photoUrl?: string | null;
   address?: string | null;
-  vkUrl?: string | null;
-  telegramUrl?: string | null;
-  whatsappUrl?: string | null;
-  backgroundImageUrl?: string | null;
 }
 
 export interface Appointment {
@@ -89,11 +84,27 @@ export const meApi = {
   },
 
   /**
-   * PUT /api/me/profile
-   * Обновить профиль мастера
+   * PATCH /api/me/profile
+   * Обновить профиль мастера (name, description, address, photoUrl)
    */
   updateProfile: async (data: UpdateProfileRequest): Promise<MeResponse> => {
-    const response = await apiClient.put("/api/me/profile", data);
+    const response = await apiClient.patch("/api/me/profile", data);
+    return response.data;
+  },
+
+  /**
+   * POST /api/me/profile/upload-photo
+   * Загрузить фото профиля
+   */
+  uploadPhoto: async (file: File): Promise<MeResponse> => {
+    const formData = new FormData();
+    formData.append("photo", file);
+    
+    const response = await apiClient.post("/api/me/profile/upload-photo", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
 

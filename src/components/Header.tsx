@@ -36,18 +36,13 @@ export const Header: React.FC<HeaderProps> = ({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
-    // Проверяем, есть ли токен при загрузке
-    const token = localStorage.getItem("authToken");
-    setIsAuthenticated(!!token);
-
     // Слушаем изменения токена (для обновления при выходе из других компонентов)
     const handleStorageChange = () => {
-      const newToken = localStorage.getItem("authToken");
-      setIsAuthenticated(!!newToken);
+      // Просто обновляем компонент при изменении токена
+      // Состояние проверяется в handleAccountClick
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -88,7 +83,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       const { token } = response.data;
       localStorage.setItem("authToken", token);
-      setIsAuthenticated(true);
       setLoginDialogOpen(false);
       setEmail("");
       setPassword("");
@@ -98,9 +92,10 @@ export const Header: React.FC<HeaderProps> = ({
 
       // Перенаправляем на кабинет мастера
       navigate("/master");
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage =
-        err.response?.data?.error || "Ошибка входа. Проверьте данные.";
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || "Ошибка входа. Проверьте данные.";
       setError(errorMessage);
       showSnackbar(errorMessage, "error");
     } finally {
@@ -110,7 +105,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
-    setIsAuthenticated(false);
     setAnchorEl(null);
     showSnackbar("Вы вышли из системы", "info");
     // Отправляем событие для обновления других компонентов

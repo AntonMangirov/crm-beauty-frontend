@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Typography, Container, CircularProgress, Alert, Button, Box } from "@mui/material";
+import {
+  Typography,
+  Container,
+  CircularProgress,
+  Alert,
+  Button,
+  Box,
+} from "@mui/material";
 import { Settings as SettingsIcon } from "@mui/icons-material";
 import { MasterProfile } from "../../components/MasterProfile";
 import { mastersApi } from "../../api/masters";
@@ -50,7 +57,7 @@ export const MasterPage: React.FC = () => {
       if (currentUser.slug === pageSlug) {
         setIsOwner(true);
       }
-    } catch (err) {
+    } catch {
       // Если ошибка (например, токен невалидный), просто не показываем кнопку
       setIsOwner(false);
     } finally {

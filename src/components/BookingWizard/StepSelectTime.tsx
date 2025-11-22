@@ -104,13 +104,19 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
         });
 
         setAvailableSlots(formattedSlots);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Ошибка загрузки временных слотов:", error);
-        console.error("Детали ошибки:", {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
+        if (error && typeof error === "object" && "response" in error) {
+          const axiosError = error as {
+            response?: { status?: number; data?: unknown };
+            message?: string;
+          };
+          console.error("Детали ошибки:", {
+            status: axiosError.response?.status,
+            data: axiosError.response?.data,
+            message: axiosError.message,
+          });
+        }
 
         const errorMessage =
           error.response?.data?.message ||

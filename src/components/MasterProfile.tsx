@@ -21,6 +21,7 @@ import {
 import { ServiceCard } from "./ServiceCard";
 import { LocationMapPreview } from "./LocationMapPreview";
 import type { Master } from "../api/masters";
+import { normalizeImageUrl } from "../utils/imageUrl";
 
 interface MasterProfileProps {
   master: Master;
@@ -37,6 +38,9 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
     navigate(`/${masterSlug}/book`);
   };
 
+  const normalizedPhotoUrl = normalizeImageUrl(master.photoUrl);
+  const normalizedBackgroundUrl = normalizeImageUrl(master.backgroundImageUrl);
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
       {/* Hero Section - Компактный блок с аватаркой */}
@@ -45,8 +49,8 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           mb: { xs: 2, sm: 2.5 },
           overflow: "hidden",
           position: "relative",
-          background: master.backgroundImageUrl
-            ? `url(${master.backgroundImageUrl})`
+          background: normalizedBackgroundUrl
+            ? `url(${normalizedBackgroundUrl})`
             : "linear-gradient(135deg, #0F3B35 0%, #0A2D28 100%)",
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -60,7 +64,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: master.backgroundImageUrl
+            background: normalizedBackgroundUrl
               ? "linear-gradient(135deg, rgba(15, 59, 53, 0.85) 0%, rgba(10, 45, 40, 0.75) 100%)"
               : "none",
             zIndex: 0,
@@ -82,9 +86,9 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
         <Box sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}>
           <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1.5 }}>
             {/* Аватар */}
-            {master.photoUrl ? (
+            {normalizedPhotoUrl ? (
               <Avatar
-                src={master.photoUrl}
+                src={normalizedPhotoUrl}
                 alt={master.name}
                 sx={{
                   width: { xs: 64, sm: 80 },
