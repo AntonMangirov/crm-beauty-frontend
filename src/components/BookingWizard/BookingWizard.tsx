@@ -166,6 +166,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
             appointmentId: response.id,
             masterName: master.name,
             masterSlug: masterSlug,
+            masterPhotoUrl: master.photoUrl,
+            masterAddress: master.address,
             serviceName: selectedService.name,
             servicePrice: selectedService.price,
             serviceDuration: selectedService.durationMin,

@@ -15,7 +15,9 @@ import {
   AccessTime as TimeIcon,
   Person as PersonIcon,
   ArrowBack as ArrowBackIcon,
+  LocationOn as LocationIcon,
 } from "@mui/icons-material";
+import { Avatar, CardMedia } from "@mui/material";
 
 interface BookingSuccessData {
   appointmentId: string;
@@ -102,6 +104,21 @@ export const BookingSuccess: React.FC = () => {
         </Typography>
       </Card>
 
+      {/* Фото мастера */}
+      {bookingData.masterPhotoUrl && (
+        <Card sx={{ mb: 4, overflow: "hidden" }}>
+          <CardMedia
+            component="img"
+            image={bookingData.masterPhotoUrl}
+            alt={bookingData.masterName}
+            sx={{
+              height: { xs: 200, sm: 300 },
+              objectFit: "cover",
+            }}
+          />
+        </Card>
+      )}
+
       <Card sx={{ p: 4, mb: 4 }}>
         <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
           Детали записи
@@ -111,7 +128,15 @@ export const BookingSuccess: React.FC = () => {
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, sm: 6 }}>
             <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <PersonIcon sx={{ mr: 2, color: "primary.main" }} />
+              {bookingData.masterPhotoUrl ? (
+                <Avatar
+                  src={bookingData.masterPhotoUrl}
+                  alt={bookingData.masterName}
+                  sx={{ width: 56, height: 56, mr: 2 }}
+                />
+              ) : (
+                <PersonIcon sx={{ mr: 2, color: "primary.main", fontSize: 40 }} />
+              )}
               <Box>
                 <Typography variant="body2" color="text.secondary">
                   Мастер
@@ -165,6 +190,20 @@ export const BookingSuccess: React.FC = () => {
               </Box>
             </Box>
           </Grid>
+
+          {bookingData.masterAddress && (
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}>
+                <LocationIcon sx={{ mr: 2, color: "primary.main", mt: 0.5 }} />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Адрес
+                  </Typography>
+                  <Typography variant="h6">{bookingData.masterAddress}</Typography>
+                </Box>
+              </Box>
+            </Grid>
+          )}
         </Grid>
       </Card>
 
