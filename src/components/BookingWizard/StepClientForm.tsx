@@ -46,6 +46,68 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Форматирует телефон в формат +7 (999) 123-45-67
+   */
+  const formatPhoneDisplay = (phone: string): string => {
+    // Удаляем все нецифровые символы кроме +
+    let cleaned = phone.replace(/[^\d+]/g, "");
+
+    // Если начинается с 8, заменяем на +7
+    if (cleaned.startsWith("8")) {
+      cleaned = "+7" + cleaned.slice(1);
+    } else if (cleaned.startsWith("7") && !cleaned.startsWith("+7")) {
+      cleaned = "+7" + cleaned.slice(1);
+    } else if (!cleaned.startsWith("+7") && /^\d/.test(cleaned)) {
+      cleaned = "+7" + cleaned;
+    }
+
+    // Если уже есть +7, убираем все лишние 8 в начале цифр после +7
+    if (cleaned.startsWith("+7")) {
+      let digits = cleaned.slice(2); // Убираем +7
+      // Если первая цифра после +7 это 8, удаляем её (так как +7 уже есть)
+      if (digits.startsWith("8")) {
+        digits = digits.slice(1);
+      }
+      cleaned = "+7" + digits;
+    }
+
+    // Ограничиваем длину (максимум 12 символов: +7 + 10 цифр)
+    if (cleaned.length > 12) {
+      cleaned = cleaned.slice(0, 12);
+    }
+
+    // Форматируем: +7 (999) 123-45-67
+    if (cleaned.startsWith("+7")) {
+      const digits = cleaned.slice(2); // Убираем +7
+      if (digits.length === 0) {
+        return "+7";
+      } else if (digits.length <= 3) {
+        return `+7 (${digits}`;
+      } else if (digits.length <= 6) {
+        return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+      } else if (digits.length <= 8) {
+        return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(
+          6
+        )}`;
+      } else {
+        return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(
+          6,
+          8
+        )}-${digits.slice(8, 10)}`;
+      }
+    }
+
+    return cleaned;
+  };
+
+  /**
+   * Извлекает только цифры из телефона для валидации
+   */
+  const getPhoneDigits = (phone: string): string => {
+    return phone.replace(/[^\d]/g, "");
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -55,10 +117,12 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
       newErrors.name = "Имя должно содержать минимум 2 символа";
     }
 
-    if (!formData.phone.trim()) {
+    const phoneDigits = getPhoneDigits(formData.phone);
+    if (!phoneDigits || phoneDigits.length < 11) {
       newErrors.phone = "Телефон обязателен";
-    } else if (!/^[+]?[0-9\s-()]{10,}$/.test(formData.phone.trim())) {
-      newErrors.phone = "Неверный формат телефона";
+    } else if (phoneDigits.length !== 11 || !phoneDigits.startsWith("7")) {
+      newErrors.phone =
+        "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67";
     }
 
     if (formData.comment && formData.comment.length > 500) {
@@ -72,7 +136,39 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   };
 
   const handleInputChange = (field: keyof ClientFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Специальная обработка для телефона
+    if (field === "phone") {
+      // Разрешаем только цифры, +, пробелы, скобки и дефисы
+      let cleaned = value.replace(/[^\d+\s()-]/g, "");
+
+      // Если поле пустое или содержит только +, устанавливаем +7
+      if (!cleaned || cleaned === "+") {
+        cleaned = "+7";
+      }
+      // Если начинается с 8 (и нет +7), заменяем на +7
+      else if (cleaned.startsWith("8") && !cleaned.startsWith("+7")) {
+        cleaned = "+7" + cleaned.slice(1);
+      }
+      // Если уже есть +7 и пользователь вводит 8, удаляем эту 8 (так как +7 уже есть)
+      else if (cleaned.startsWith("+7") && cleaned.includes("8")) {
+        // Убираем все 8, которые идут сразу после +7
+        let digits = cleaned.slice(2); // Убираем +7
+        digits = digits.replace(/^8+/, ""); // Удаляем все 8 в начале
+        cleaned = "+7" + digits;
+      }
+
+      // Ограничиваем длину (максимум 18 символов с форматированием: +7 (999) 123-45-67)
+      if (cleaned.length > 18) {
+        cleaned = cleaned.slice(0, 18);
+      }
+
+      // Форматируем для отображения
+      const formatted = formatPhoneDisplay(cleaned);
+      setFormData((prev) => ({ ...prev, [field]: formatted }));
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -81,13 +177,31 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Нормализуем телефон перед отправкой (убираем форматирование, оставляем только +7XXXXXXXXXX)
+    const phoneDigits = getPhoneDigits(formData.phone);
+    let normalizedPhone: string;
+
+    if (phoneDigits.startsWith("7")) {
+      normalizedPhone = "+" + phoneDigits;
+    } else if (phoneDigits.length === 10) {
+      // Если 10 цифр без кода страны, добавляем +7
+      normalizedPhone = "+7" + phoneDigits;
+    } else {
+      // Если что-то не так, пробуем исправить
+      normalizedPhone = "+7" + phoneDigits.replace(/^7/, "");
+    }
+
     if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onFormSubmit(formData);
+      // Отправляем нормализованный телефон без форматирования
+      await onFormSubmit({
+        ...formData,
+        phone: normalizedPhone,
+      });
     } catch (error) {
       console.error("Ошибка отправки формы:", error);
     } finally {
@@ -210,29 +324,110 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               fullWidth
               label="Телефон *"
               value={formData.phone}
-              onChange={(e) => handleInputChange("phone", e.target.value)}
+              onChange={(e) => {
+                let value = e.target.value;
+
+                // Разрешаем только цифры, +, пробелы, скобки и дефисы
+                value = value.replace(/[^\d+\s()-]/g, "");
+
+                // Если поле пустое или содержит только +, устанавливаем +7
+                if (!value || value === "+") {
+                  value = "+7";
+                }
+                // Если начинается с 8 (и нет +7), заменяем на +7
+                else if (value.startsWith("8") && !value.startsWith("+7")) {
+                  value = "+7" + value.slice(1);
+                }
+                // Если уже есть +7 и пользователь вводит 8, удаляем эту 8
+                else if (
+                  value.startsWith("+7") &&
+                  value.length > 2 &&
+                  value[2] === "8"
+                ) {
+                  // Убираем первую 8 после +7
+                  value = "+7" + value.slice(3);
+                }
+
+                // Ограничиваем длину (максимум 18 символов с форматированием: +7 (999) 123-45-67)
+                if (value.length > 18) {
+                  value = value.slice(0, 18);
+                }
+
+                // Форматируем через handleInputChange, который применит formatPhoneDisplay
+                handleInputChange("phone", value);
+              }}
               onFocus={(e) => {
                 const value = e.target.value.trim();
-                if (!value) {
+                if (!value || value === "") {
                   handleInputChange("phone", "+7");
-                } else if (value.startsWith("+")) {
+                }
+              }}
+              onPaste={(e) => {
+                // Обрабатываем вставку текста
+                e.preventDefault();
+                const pastedText = e.clipboardData.getData("text").trim();
+
+                // Удаляем все нецифровые символы кроме +
+                let cleaned = pastedText.replace(/[^\d+]/g, "");
+
+                // Если начинается с +7, оставляем как есть (но убираем дубликаты +7)
+                if (cleaned.startsWith("+7")) {
+                  cleaned = "+7" + cleaned.replace(/^\+7/g, "");
+                  // Убираем первую 8 после +7 если она есть
+                  if (cleaned.length > 2 && cleaned[2] === "8") {
+                    cleaned = "+7" + cleaned.slice(3);
+                  }
+                } else if (cleaned.startsWith("7")) {
+                  cleaned = "+" + cleaned;
+                } else if (cleaned.startsWith("8")) {
+                  cleaned = "+7" + cleaned.slice(1);
+                } else if (/^\d/.test(cleaned)) {
+                  cleaned = "+7" + cleaned;
+                }
+
+                // Ограничиваем длину (12 символов: +7 + 10 цифр)
+                if (cleaned.length > 12) {
+                  cleaned = cleaned.slice(0, 12);
+                }
+
+                handleInputChange("phone", cleaned);
+              }}
+              onKeyDown={(e) => {
+                // Запрещаем ввод недопустимых символов
+                const allowedKeys = [
+                  "Backspace",
+                  "Delete",
+                  "Tab",
+                  "Escape",
+                  "Enter",
+                  "ArrowLeft",
+                  "ArrowRight",
+                  "ArrowUp",
+                  "ArrowDown",
+                  "Home",
+                  "End",
+                ];
+
+                if (allowedKeys.includes(e.key)) {
                   return;
-                } else if (/^8/.test(value)) {
-                  handleInputChange("phone", "+7" + value.slice(1));
-                } else if (/^9/.test(value)) {
-                  handleInputChange("phone", "+7" + value);
-                } else if (/^[0-9]/.test(value)) {
-                  handleInputChange("phone", "+7" + value);
+                }
+
+                // Разрешаем только цифры, +, пробелы, скобки и дефисы
+                if (!/[\d+\s()-]/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+                  e.preventDefault();
                 }
               }}
               error={!!errors.phone}
-              helperText={errors.phone}
+              helperText={errors.phone || "Формат: +7 (999) 123-45-67"}
               InputProps={{
                 startAdornment: (
                   <PhoneIcon sx={{ mr: 1, color: "action.active" }} />
                 ),
               }}
               placeholder="+7 (999) 123-45-67"
+              inputProps={{
+                maxLength: 18, // +7 (999) 123-45-67 = 18 символов
+              }}
             />
           </Grid>
 

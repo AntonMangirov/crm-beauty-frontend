@@ -137,7 +137,8 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         serviceId: selectedServices[0],
         startAt: startAtDate.toISOString(),
         comment: formData.comment || undefined,
-        recaptchaToken: recaptchaToken || undefined,
+        // Отправляем токен только если он получен (в dev режиме может быть null)
+        ...(recaptchaToken && { recaptchaToken }),
       };
 
       const response = await mastersApi.bookAppointment(
@@ -184,29 +185,63 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       const error = err as any; // eslint-disable-line @typescript-eslint/no-explicit-any
       let errorMessage = "Не удалось создать запись. Попробуйте еще раз.";
 
-      if (error.response?.status === 400) {
-        if (error.response.data?.details?.fieldErrors) {
-          const fieldErrors = error.response.data.details.fieldErrors;
-          const errorFields = Object.keys(fieldErrors);
-          if (errorFields.length > 0) {
-            const firstError = fieldErrors[errorFields[0]];
-            errorMessage = Array.isArray(firstError)
-              ? firstError[0]
-              : firstError || errorMessage;
-          } else {
-            errorMessage = error.response.data?.message || errorMessage;
-          }
-        } else {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.data?.error ||
-            errorMessage;
+      // Обработка различных статусов ошибок
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+
+        switch (status) {
+          case 400:
+            // Ошибка валидации (дата, формат и т.д.)
+            if (data?.details?.issues) {
+              // Zod validation errors
+              const firstIssue = data.details.issues[0];
+              errorMessage = firstIssue?.message || "Ошибка валидации данных";
+            } else if (data?.details?.fieldErrors) {
+              // Field-specific errors
+              const fieldErrors = data.details.fieldErrors;
+              const errorFields = Object.keys(fieldErrors);
+              if (errorFields.length > 0) {
+                const firstError = fieldErrors[errorFields[0]];
+                errorMessage = Array.isArray(firstError)
+                  ? firstError[0]
+                  : firstError || errorMessage;
+              } else {
+                errorMessage = data?.message || errorMessage;
+              }
+            } else {
+              // Общая ошибка 400
+              errorMessage =
+                data?.message ||
+                data?.error ||
+                "Ошибка валидации. Проверьте введенные данные.";
+            }
+            break;
+
+          case 404:
+            // Мастер не найден или неактивен
+            errorMessage = data?.message || "Мастер не найден или неактивен";
+            break;
+
+          case 409:
+            // Конфликт времени (слот занят)
+            errorMessage =
+              data?.message ||
+              "Выбранное время уже занято. Пожалуйста, выберите другое время";
+            break;
+
+          case 500:
+            // Внутренняя ошибка сервера
+            errorMessage =
+              "Внутренняя ошибка сервера. Пожалуйста, попробуйте позже.";
+            break;
+
+          default:
+            errorMessage = data?.message || errorMessage;
         }
-      } else if (error.response?.status === 404) {
-        errorMessage = "Мастер не найден";
-      } else if (error.response?.status === 409) {
-        errorMessage =
-          "Выбранное время уже занято. Пожалуйста, выберите другое время";
+      } else if (error.request) {
+        // Запрос отправлен, но ответа нет
+        errorMessage = "Не удалось подключиться к серверу. Проверьте подключение.";
       }
 
       setError(errorMessage);

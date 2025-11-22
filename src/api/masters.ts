@@ -24,7 +24,7 @@ export interface BookingRequest {
   serviceId: string;
   startAt: string; // ISO строка
   comment?: string;
-  recaptchaToken?: string; // reCAPTCHA v3 токен
+  recaptchaToken?: string; // reCAPTCHA v3 токен (опционально в dev режиме)
 }
 
 export interface BookingResponse {
@@ -65,14 +65,23 @@ export const mastersApi = {
     slug: string,
     bookingData: BookingRequest
   ): Promise<BookingResponse> => {
-    const response = await apiClient.post(`/api/public/${slug}/book`, {
+    const requestBody: Record<string, unknown> = {
       name: bookingData.name,
       phone: bookingData.phone,
       serviceId: bookingData.serviceId,
       startAt: bookingData.startAt,
-      comment: bookingData.comment,
-      recaptchaToken: bookingData.recaptchaToken,
-    });
+    };
+    
+    if (bookingData.comment) {
+      requestBody.comment = bookingData.comment;
+    }
+    
+    // Добавляем recaptchaToken только если он есть
+    if (bookingData.recaptchaToken) {
+      requestBody.recaptchaToken = bookingData.recaptchaToken;
+    }
+    
+    const response = await apiClient.post(`/api/public/${slug}/book`, requestBody);
     return response.data;
   },
 };

@@ -78,8 +78,12 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
       setSlotsError(null);
 
       try {
-        // Форматируем дату в YYYY-MM-DD
-        const dateStr = localDate.toISOString().split("T")[0];
+        // Форматируем дату в YYYY-MM-DD (используем локальные компоненты даты)
+        // toISOString() может дать неправильную дату из-за часового пояса
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, "0");
+        const day = String(localDate.getDate()).padStart(2, "0");
+        const dateStr = `${year}-${month}-${day}`;
 
         // Используем первую выбранную услугу для учёта длительности
         const serviceId =
@@ -100,9 +104,19 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
         });
 
         setAvailableSlots(formattedSlots);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Ошибка загрузки временных слотов:", error);
-        setSlotsError("Не удалось загрузить доступное время");
+        console.error("Детали ошибки:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+
+        const errorMessage =
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          "Не удалось загрузить доступное время";
+        setSlotsError(errorMessage);
         // Fallback к хардкоду в случае ошибки
         const fallbackSlots = [];
         for (let hour = 9; hour <= 18; hour++) {

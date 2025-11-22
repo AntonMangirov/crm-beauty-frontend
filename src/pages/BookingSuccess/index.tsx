@@ -40,7 +40,12 @@ export const BookingSuccess: React.FC = () => {
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "Не указано";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.error("Invalid date string:", dateString);
+      return "Неверная дата";
+    }
     return new Intl.DateTimeFormat("ru-RU", {
       day: "numeric",
       month: "long",
@@ -49,10 +54,16 @@ export const BookingSuccess: React.FC = () => {
   };
 
   const formatTime = (dateString: string) => {
+    if (!dateString) return "Не указано";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.error("Invalid time string:", dateString);
+      return "Неверное время";
+    }
     return new Intl.DateTimeFormat("ru-RU", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "UTC",
     }).format(date);
   };
 
