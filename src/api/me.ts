@@ -174,14 +174,14 @@ export const meApi = {
   },
 
   /**
-   * PUT /api/me/services/:id
+   * PATCH /api/me/services/:id
    * Обновить услугу
    */
   updateService: async (
     id: string,
     data: UpdateServiceRequest
   ): Promise<Service> => {
-    const response = await apiClient.put(`/api/me/services/${id}`, data);
+    const response = await apiClient.patch(`/api/me/services/${id}`, data);
     return response.data;
   },
 
