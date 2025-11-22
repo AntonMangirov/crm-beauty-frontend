@@ -3,10 +3,13 @@ import { CssBaseline, Box } from "@mui/material";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Header } from "../components/Header";
 import { SnackbarProvider } from "../components/SnackbarProvider";
+import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Dashboard } from "../pages/Dashboard";
 import { MasterPage } from "../pages/MasterPage";
+import { MasterCabinet } from "../pages/MasterCabinet";
 import { BookPage } from "../pages/BookPage";
 import { BookingSuccess } from "../pages/BookingSuccess";
+import { Login } from "../pages/Login";
 import { NotFound } from "../pages/NotFound";
 import theme from "../theme";
 
@@ -24,6 +27,26 @@ export default function App() {
               <Route path="/services" element={<Dashboard />} />
               <Route path="/appointments" element={<Dashboard />} />
               <Route path="/booking-success" element={<BookingSuccess />} />
+              {/* Страница входа */}
+              <Route path="/login" element={<Login />} />
+              {/* Защищенные роуты кабинета мастера */}
+              <Route
+                path="/master"
+                element={
+                  <ProtectedRoute>
+                    <MasterCabinet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/master/*"
+                element={
+                  <ProtectedRoute>
+                    <MasterCabinet />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Публичные роуты */}
               <Route path="/:slug/book" element={<BookPage />} />
               <Route path="/:slug" element={<MasterPage />} />
               <Route path="*" element={<NotFound />} />
