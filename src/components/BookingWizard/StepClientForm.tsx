@@ -251,48 +251,70 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      <Typography variant="h5" sx={{ mb: 1.5, fontWeight: 600 }}>
         Ваши данные
       </Typography>
 
-      <Typography variant="body1" sx={{ mb: 4, color: "text.secondary" }}>
+      <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
         Заполните контактную информацию для записи
       </Typography>
 
       {/* Сводка записи */}
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+          <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
             Сводка записи
           </Typography>
 
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Box sx={{ mb: 1.5 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 0.5 }}
+            >
               Дата и время:
             </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {formatDate(selectedDate)} в {selectedTime}
             </Typography>
           </Box>
 
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Box sx={{ mb: 1.5 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 0.5 }}
+            >
               Услуги:
             </Typography>
             {selectedServices.map((service) => (
-              <Typography key={service.id} variant="body2" sx={{ ml: 2 }}>
+              <Typography
+                key={service.id}
+                variant="caption"
+                sx={{ ml: 1.5, display: "block" }}
+              >
                 • {service.name} - {formatPrice(parseFloat(service.price))}
               </Typography>
             ))}
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 1.5 }} />
 
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Typography variant="body2" color="text.secondary">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
               Общее время: {formatDuration(getTotalDuration())}
             </Typography>
-            <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
+            <Typography
+              variant="subtitle1"
+              color="primary"
+              sx={{ fontWeight: 600 }}
+            >
               {formatPrice(getTotalPrice())}
             </Typography>
           </Box>
@@ -301,10 +323,11 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
 
       {/* Форма */}
       <form onSubmit={handleSubmit}>
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
+              size="small"
               label="Имя *"
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
@@ -312,7 +335,9 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               helperText={errors.name}
               InputProps={{
                 startAdornment: (
-                  <PersonIcon sx={{ mr: 1, color: "action.active" }} />
+                  <PersonIcon
+                    sx={{ mr: 1, color: "action.active", fontSize: 20 }}
+                  />
                 ),
               }}
               placeholder="Введите ваше имя"
@@ -322,6 +347,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
+              size="small"
               label="Телефон *"
               value={formData.phone}
               onChange={(e) => {
@@ -421,7 +447,9 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               helperText={errors.phone || "Формат: +7 (999) 123-45-67"}
               InputProps={{
                 startAdornment: (
-                  <PhoneIcon sx={{ mr: 1, color: "action.active" }} />
+                  <PhoneIcon
+                    sx={{ mr: 1, color: "action.active", fontSize: 20 }}
+                  />
                 ),
               }}
               placeholder="+7 (999) 123-45-67"
@@ -434,6 +462,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
           <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
+              size="small"
               label="Комментарий"
               value={formData.comment}
               onChange={(e) => handleInputChange("comment", e.target.value)}
@@ -442,10 +471,12 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
                 errors.comment || "Дополнительные пожелания (необязательно)"
               }
               multiline
-              rows={3}
+              rows={2}
               InputProps={{
                 startAdornment: (
-                  <CommentIcon sx={{ mr: 1, color: "action.active" }} />
+                  <CommentIcon
+                    sx={{ mr: 1, color: "action.active", fontSize: 20 }}
+                  />
                 ),
               }}
               placeholder="Расскажите о ваших пожеланиях..."
@@ -459,26 +490,27 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 2,
-              mt: 3,
-              py: 2,
+              gap: 1.5,
+              mt: 2,
+              py: 1.5,
               bgcolor: "background.paper",
-              borderRadius: 2,
+              borderRadius: 1,
               border: "1px solid",
               borderColor: "divider",
             }}
           >
-            <CircularProgress size={24} />
-            <Typography variant="body1" sx={{ color: "text.secondary" }}>
+            <CircularProgress size={20} />
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               Создание записи...
             </Typography>
           </Box>
         )}
 
         {/* Навигация */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
           <Button
             variant="outlined"
+            size="medium"
             onClick={onBack}
             disabled={isSubmitting}
             sx={{ textTransform: "none" }}
@@ -489,8 +521,9 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
           <Button
             type="submit"
             variant="contained"
+            size="medium"
             disabled={isSubmitting}
-            sx={{ textTransform: "none", px: 4 }}
+            sx={{ textTransform: "none", px: 3 }}
           >
             {isSubmitting ? "Отправка..." : "Записаться"}
           </Button>

@@ -160,21 +160,21 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Box>
-        <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+        <Typography variant="h5" sx={{ mb: 1.5, fontWeight: 600 }}>
           Выберите дату и время
         </Typography>
 
-        <Typography variant="body1" sx={{ mb: 4, color: "text.secondary" }}>
+        <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
           Выберите удобную дату и время для записи
         </Typography>
 
         {/* Выбранные услуги */}
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+        <Card sx={{ mb: 2 }}>
+          <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
               Выбранные услуги
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", gap: 0.5, mb: 1, flexWrap: "wrap" }}>
               {selectedServices.map((service) => (
                 <Chip
                   key={service.id}
@@ -185,20 +185,22 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                 />
               ))}
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               Общее время: {formatDuration(getTotalDuration())}
             </Typography>
           </CardContent>
         </Card>
 
-        <Grid container spacing={4}>
+        <Grid container spacing={2}>
           {/* Выбор даты */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <CalendarIcon sx={{ mr: 1, color: "primary.main" }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                  <CalendarIcon
+                    sx={{ mr: 1, color: "primary.main", fontSize: 20 }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     Выберите дату
                   </Typography>
                 </Box>
@@ -211,6 +213,7 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      size: "small",
                       helperText: "Выберите дату не ранее завтрашнего дня",
                     },
                   }}
@@ -219,13 +222,13 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                 {localDate && (
                   <Box
                     sx={{
-                      mt: 2,
-                      p: 2,
+                      mt: 1.5,
+                      p: 1,
                       bgcolor: "primary.light",
                       borderRadius: 1,
                     }}
                   >
-                    <Typography variant="body2" color="primary.contrastText">
+                    <Typography variant="caption" color="primary.contrastText">
                       Выбрано: {formatDate(localDate)}
                     </Typography>
                   </Box>
@@ -237,34 +240,36 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
           {/* Выбор времени */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <TimeIcon sx={{ mr: 1, color: "primary.main" }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                  <TimeIcon
+                    sx={{ mr: 1, color: "primary.main", fontSize: 20 }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     Выберите время
                   </Typography>
                 </Box>
 
                 {loadingSlots ? (
                   <Box
-                    sx={{ display: "flex", justifyContent: "center", py: 3 }}
+                    sx={{ display: "flex", justifyContent: "center", py: 2 }}
                   >
-                    <CircularProgress size={24} />
+                    <CircularProgress size={20} />
                   </Box>
                 ) : slotsError ? (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Alert severity="warning" sx={{ mb: 1, py: 0.5 }}>
                     {slotsError}
                   </Alert>
                 ) : availableSlots.length === 0 ? (
                   <Typography
-                    variant="body2"
+                    variant="caption"
                     color="text.secondary"
-                    sx={{ py: 2 }}
+                    sx={{ py: 1, display: "block" }}
                   >
                     Нет доступного времени на выбранную дату
                   </Typography>
                 ) : (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
                     {availableSlots.map((time) => (
                       <Button
                         key={time}
@@ -285,13 +290,13 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                 {localTime && (
                   <Box
                     sx={{
-                      mt: 2,
-                      p: 2,
+                      mt: 1.5,
+                      p: 1,
                       bgcolor: "primary.light",
                       borderRadius: 1,
                     }}
                   >
-                    <Typography variant="body2" color="primary.contrastText">
+                    <Typography variant="caption" color="primary.contrastText">
                       Выбрано: {localTime}
                     </Typography>
                   </Box>
@@ -302,9 +307,10 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
         </Grid>
 
         {/* Навигация */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
           <Button
             variant="outlined"
+            size="medium"
             onClick={onBack}
             sx={{ textTransform: "none" }}
           >
@@ -313,9 +319,10 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
 
           <Button
             variant="contained"
+            size="medium"
             onClick={handleNext}
             disabled={!localDate || !localTime}
-            sx={{ textTransform: "none", px: 4 }}
+            sx={{ textTransform: "none", px: 3 }}
           >
             Продолжить
           </Button>

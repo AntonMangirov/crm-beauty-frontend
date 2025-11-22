@@ -287,9 +287,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: 2 }}>
       {/* Stepper */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 2 }}>
         <Stepper activeStep={activeStep} alternativeLabel>
           {steps.map((label) => (
             <Step key={label}>
@@ -300,7 +300,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       </Box>
 
       {/* Содержимое шагов */}
-      <Box sx={{ minHeight: 400 }}>
+      <Box sx={{ minHeight: 300 }}>
         {activeStep === 0 && (
           <StepSelectService
             services={master.services}
