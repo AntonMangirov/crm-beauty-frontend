@@ -8,6 +8,12 @@ export interface Master {
   address: string | null;
   lat: number | null;
   lng: number | null;
+  phone?: string | null;
+  vkUrl?: string | null;
+  telegramUrl?: string | null;
+  whatsappUrl?: string | null;
+  rating?: number | null;
+  backgroundImageUrl?: string | null; // Фоновое изображение для карточки мастера
   services: Service[];
 }
 
@@ -16,6 +22,7 @@ export interface Service {
   name: string;
   price: string; // API возвращает строку
   durationMin: number;
+  photoUrl?: string | null; // Фото услуги (опционально)
 }
 
 export interface BookingRequest {

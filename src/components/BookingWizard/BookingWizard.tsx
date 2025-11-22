@@ -21,6 +21,7 @@ import { getRecaptchaToken } from "../../utils/recaptcha";
 
 interface BookingWizardProps {
   masterSlug: string;
+  preselectedServiceId?: string; // Предвыбранная услуга
   onBookingComplete?: (appointmentId: string) => void;
   onClose?: () => void;
 }
@@ -29,6 +30,7 @@ const steps = ["Выбор услуг", "Дата и время", "Контак�
 
 export const BookingWizard: React.FC<BookingWizardProps> = ({
   masterSlug,
+  preselectedServiceId,
   onBookingComplete,
   onClose,
 }) => {
@@ -40,7 +42,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Данные записи
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    preselectedServiceId ? [preselectedServiceId] : []
+  );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -56,6 +60,20 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       setError(null);
       const masterData = await mastersApi.getBySlug(masterSlug);
       setMaster(masterData);
+      
+      // Если есть предвыбранная услуга, проверяем её существование
+      if (preselectedServiceId) {
+        const serviceExists = masterData.services.some(
+          (s) => s.id === preselectedServiceId
+        );
+        if (serviceExists) {
+          setSelectedServices([preselectedServiceId]);
+        } else {
+          console.warn(
+            `Услуга ${preselectedServiceId} не найдена у мастера ${masterSlug}`
+          );
+        }
+      }
     } catch (err) {
       console.error("Ошибка загрузки мастера:", err);
       setError("Не удалось загрузить данные мастера");

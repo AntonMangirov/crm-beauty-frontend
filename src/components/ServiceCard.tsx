@@ -1,18 +1,32 @@
-import { Card, CardContent, Typography, Box, Button } from "@mui/material";
+import { Card, CardContent, Typography, Box, Button, CardMedia } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 interface ServiceCardProps {
+  id: string;
   name: string;
   price: number;
   durationMin?: number;
   description?: string;
+  photoUrl?: string | null;
+  masterSlug: string;
 }
 
 export const ServiceCard: React.FC<ServiceCardProps> = ({
+  id,
   name,
   price,
   durationMin,
   description,
+  photoUrl,
+  masterSlug,
 }) => {
+  const navigate = useNavigate();
+  
+  const handleBookClick = () => {
+    navigate(`/${masterSlug}/book`, {
+      state: { serviceId: id },
+    });
+  };
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("ru-RU", {
       style: "currency",
@@ -31,26 +45,41 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   };
 
   return (
-    <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Card sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Фото услуги */}
+      {photoUrl && (
+        <CardMedia
+          component="img"
+          image={photoUrl}
+          alt={name}
+          sx={{
+            height: 140,
+            objectFit: "cover",
+          }}
+        />
+      )}
+      
       <CardContent
-        sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}
+        sx={{ flexGrow: 1, display: "flex", flexDirection: "column", p: 1.5 }}
       >
         {/* Header: название */}
-        <Typography variant="h3" component="h3" sx={{ fontWeight: 600, mb: 1 }}>
+        <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mb: 0.5 }}>
           {name}
         </Typography>
 
         {/* Subline: durationMin • price */}
-        <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+        <Box sx={{ display: "flex", gap: 0.5, mb: 1.5, alignItems: "center" }}>
           {durationMin && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               {formatDuration(durationMin)}
             </Typography>
           )}
-          <Typography variant="body2" color="text.secondary">
-            •
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          {durationMin && (
+            <Typography variant="caption" color="text.secondary">
+              •
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
             {formatPrice(price)}
           </Typography>
         </Box>
@@ -58,9 +87,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         {/* Description */}
         {description && (
           <Typography
-            variant="body2"
+            variant="caption"
             color="text.secondary"
-            sx={{ mb: 3, flexGrow: 1 }}
+            sx={{ mb: 1.5, flexGrow: 1 }}
           >
             {description}
           </Typography>
@@ -70,9 +99,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
         <Button
           variant="contained"
           fullWidth
+          size="small"
+          onClick={handleBookClick}
           sx={{
             mt: "auto",
-            borderRadius: 2,
+            borderRadius: 1,
+            textTransform: "none",
           }}
         >
           Записаться

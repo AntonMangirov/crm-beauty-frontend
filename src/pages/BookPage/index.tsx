@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Container, IconButton, Typography, Box } from "@mui/material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import { BookingWizard } from "../../components/BookingWizard/BookingWizard";
@@ -7,6 +7,13 @@ import { BookingWizard } from "../../components/BookingWizard/BookingWizard";
 export const BookPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Получаем предвыбранную услугу из state или URL параметра
+  const preselectedServiceId =
+    (location.state as { serviceId?: string })?.serviceId ||
+    new URLSearchParams(location.search).get("serviceId") ||
+    undefined;
 
   const handleClose = () => {
     if (slug) {
@@ -59,6 +66,7 @@ export const BookPage: React.FC = () => {
 
       <BookingWizard
         masterSlug={slug}
+        preselectedServiceId={preselectedServiceId}
         onBookingComplete={handleBookingComplete}
         onClose={handleClose}
       />
