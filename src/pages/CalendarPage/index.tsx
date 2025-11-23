@@ -18,10 +18,11 @@ import {
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { PickersDay } from "@mui/x-date-pickers/PickersDay";
 import { ru } from "date-fns/locale";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from "date-fns";
 import {
   CalendarToday as CalendarIcon,
   Check as CheckIcon,
@@ -55,6 +56,11 @@ export const CalendarPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
+  const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
+  // Выходные дни мастера (опционально выставляются мастером через настройки)
+  // Формат: Set дат в формате "yyyy-MM-dd"
+  // TODO: Загружать из API /api/me/days-off при монтировании компонента
+  const [masterDaysOff, setMasterDaysOff] = useState<Set<string>>(new Set());
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -65,6 +71,62 @@ export const CalendarPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // Загружаем даты с записями при монтировании и при смене месяца
+  useEffect(() => {
+    if (selectedDate) {
+      loadDatesWithAppointments();
+      // TODO: Загрузить выходные дни мастера из API
+      // loadMasterDaysOff();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate ? format(selectedDate, "yyyy-MM") : null]);
+
+  // Проверка, является ли дата выходным днем мастера
+  // Выходные дни опционально выставляются самим мастером через настройки
+  // TODO: Загружать выходные дни мастера из API /api/me/days-off
+  const isDayOff = (date: Date): boolean => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    return masterDaysOff.has(dateKey);
+  };
+
+  // Загружаем даты с записями для текущего месяца
+  const loadDatesWithAppointments = async () => {
+    if (!selectedDate) return;
+
+    try {
+      const monthStart = startOfMonth(selectedDate);
+      const monthEnd = endOfMonth(selectedDate);
+      
+      const year = monthStart.getFullYear();
+      const month = monthStart.getMonth();
+      const day = monthStart.getDate();
+      
+      const utcMonthStart = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      
+      const endYear = monthEnd.getFullYear();
+      const endMonth = monthEnd.getMonth();
+      const endDay = monthEnd.getDate();
+      const utcMonthEnd = new Date(Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999));
+
+      const data = await meApi.getAppointments({
+        from: utcMonthStart.toISOString(),
+        to: utcMonthEnd.toISOString(),
+      });
+
+      // Извлекаем уникальные даты из записей
+      const datesSet = new Set<string>();
+      data.forEach((apt) => {
+        const date = new Date(apt.startAt);
+        const dateKey = format(date, "yyyy-MM-dd");
+        datesSet.add(dateKey);
+      });
+
+      setDatesWithAppointments(datesSet);
+    } catch (err) {
+      console.error("Ошибка загрузки дат с записями:", err);
+    }
+  };
 
   const loadAppointments = async () => {
     if (!selectedDate) return;
@@ -361,6 +423,83 @@ export const CalendarPage: React.FC = () => {
               label="Выберите дату"
               value={selectedDate}
               onChange={(newValue) => setSelectedDate(newValue)}
+              slots={{
+                day: (props) => {
+                  const { day, ...other } = props;
+                  const dateKey = format(day, "yyyy-MM-dd");
+                  const hasAppointments = datesWithAppointments.has(dateKey);
+                  const isTodayDate = isToday(day);
+                  const isPastDate = isPast(startOfDay(day)) && !isTodayDate;
+                  const isDayOffDate = isDayOff(day);
+                  
+                  return (
+                    <PickersDay
+                      {...other}
+                      day={day}
+                      sx={{
+                        // Стили для выходных дней (будущих)
+                        ...(isDayOffDate && !isPastDate && {
+                          color: "error.main",
+                          fontWeight: 600,
+                        }),
+                        // Стили для прошедших выходных дней
+                        ...(isDayOffDate && isPastDate && {
+                          color: "error.light",
+                          opacity: 0.6,
+                        }),
+                        // Стили для прошедших дней без записей
+                        ...(isPastDate && !hasAppointments && !isDayOffDate && {
+                          color: "text.disabled",
+                          opacity: 0.5,
+                        }),
+                        // Стили для прошедших дней с записями (более серые)
+                        ...(isPastDate && hasAppointments && !isDayOffDate && {
+                          bgcolor: "action.disabledBackground",
+                          color: "text.disabled",
+                          opacity: 0.7,
+                          fontWeight: 500,
+                        }),
+                        // Стили для сегодняшней даты
+                        ...(isTodayDate && {
+                          border: "2px solid",
+                          borderColor: isDayOffDate ? "error.main" : "primary.main",
+                          fontWeight: 700,
+                          bgcolor: hasAppointments 
+                            ? (isDayOffDate ? "error.light" : "primary.light") 
+                            : "background.paper",
+                        }),
+                        // Стили для будущих дат с записями (не выходные)
+                        ...(hasAppointments && !isTodayDate && !isPastDate && !isDayOffDate && {
+                          bgcolor: "primary.light",
+                          color: "primary.contrastText",
+                          fontWeight: 600,
+                          "&:hover": {
+                            bgcolor: "primary.main",
+                          },
+                          "&.Mui-selected": {
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                            "&:hover": {
+                              bgcolor: "primary.dark",
+                            },
+                          },
+                        }),
+                        // Стили для выбранной даты с записями и сегодня
+                        ...(hasAppointments && isTodayDate && !isDayOffDate && {
+                          "&.Mui-selected": {
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                            borderColor: "primary.dark",
+                            "&:hover": {
+                              bgcolor: "primary.dark",
+                            },
+                          },
+                        }),
+                      }}
+                    />
+                  );
+                },
+              }}
               slotProps={{
                 textField: {
                   size: "small",
