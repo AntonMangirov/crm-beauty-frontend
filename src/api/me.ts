@@ -104,6 +104,14 @@ export interface UpdateServiceRequest {
   isActive?: boolean;
 }
 
+export interface ClientListItem {
+  id: string;
+  name: string;
+  phone: string | null;
+  lastVisit: string | null; // ISO date string
+  visitsCount: number;
+}
+
 export const meApi = {
   /**
    * GET /api/me
@@ -222,5 +230,14 @@ export const meApi = {
    */
   deleteService: async (id: string): Promise<void> => {
     await apiClient.delete(`/api/me/services/${id}`);
+  },
+
+  /**
+   * GET /api/me/clients
+   * Получить список клиентов мастера
+   */
+  getClients: async (): Promise<ClientListItem[]> => {
+    const response = await apiClient.get("/api/me/clients");
+    return response.data;
   },
 };
