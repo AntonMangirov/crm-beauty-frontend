@@ -173,6 +173,20 @@ export const meApi = {
   },
 
   /**
+   * PUT /api/me/appointments/:id
+   * Обновить статус записи
+   */
+  updateAppointmentStatus: async (
+    id: string,
+    status: "CONFIRMED" | "CANCELED" | "COMPLETED"
+  ): Promise<Appointment> => {
+    const response = await apiClient.put(`/api/me/appointments/${id}`, {
+      status,
+    });
+    return response.data;
+  },
+
+  /**
    * GET /api/me/services
    * Получить все услуги мастера
    */
