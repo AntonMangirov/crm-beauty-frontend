@@ -112,6 +112,25 @@ export interface ClientListItem {
   visitsCount: number;
 }
 
+export interface ClientHistoryPhoto {
+  id: string;
+  url: string;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface ClientHistoryItem {
+  id: string;
+  date: string; // ISO date string
+  service: {
+    id: string;
+    name: string;
+    price: number;
+  };
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED" | "NO_SHOW";
+  photos: ClientHistoryPhoto[];
+}
+
 export const meApi = {
   /**
    * GET /api/me
@@ -238,6 +257,15 @@ export const meApi = {
    */
   getClients: async (): Promise<ClientListItem[]> => {
     const response = await apiClient.get("/api/me/clients");
+    return response.data;
+  },
+
+  /**
+   * GET /api/me/clients/:id/history
+   * Получить историю посещений клиента
+   */
+  getClientHistory: async (clientId: string): Promise<ClientHistoryItem[]> => {
+    const response = await apiClient.get(`/api/me/clients/${clientId}/history`);
     return response.data;
   },
 };

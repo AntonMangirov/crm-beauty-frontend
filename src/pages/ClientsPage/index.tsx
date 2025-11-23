@@ -16,11 +16,14 @@ import { ru } from "date-fns/locale";
 import { People as PeopleIcon } from "@mui/icons-material";
 import { meApi, type ClientListItem } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
+import { ClientHistoryModal } from "../../components/ClientHistoryModal";
 
 export const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -51,6 +54,16 @@ export const ClientsPage: React.FC = () => {
     } catch {
       return "—";
     }
+  };
+
+  const handleRowClick = (params: { row: ClientListItem }) => {
+    setSelectedClient(params.row);
+    setHistoryModalOpen(true);
+  };
+
+  const handleCloseHistoryModal = () => {
+    setHistoryModalOpen(false);
+    setSelectedClient(null);
   };
 
   const columns: GridColDef[] = [
@@ -166,6 +179,7 @@ export const ClientsPage: React.FC = () => {
           getRowId={(row) => row.id}
           autoHeight
           disableRowSelectionOnClick
+          onRowClick={handleRowClick}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{
             pagination: {
@@ -174,6 +188,10 @@ export const ClientsPage: React.FC = () => {
           }}
           sx={{
             border: "none",
+            cursor: "pointer",
+            "& .MuiDataGrid-row:hover": {
+              bgcolor: "action.hover",
+            },
             "& .MuiDataGrid-cell": {
               borderBottom: "1px solid",
               borderColor: "divider",
@@ -190,6 +208,13 @@ export const ClientsPage: React.FC = () => {
           }}
         />
       </Card>
+
+      {/* Модальное окно истории клиента */}
+      <ClientHistoryModal
+        open={historyModalOpen}
+        client={selectedClient}
+        onClose={handleCloseHistoryModal}
+      />
     </Container>
   );
 };
