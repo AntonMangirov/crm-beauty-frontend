@@ -66,6 +66,10 @@ export interface Appointment {
 }
 
 export interface AppointmentsFilter {
+  // Короткие параметры (предпочтительные)
+  from?: string;
+  to?: string;
+  // Старые параметры (для обратной совместимости)
   dateFrom?: string;
   dateTo?: string;
   status?: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED" | "NO_SHOW";
@@ -126,12 +130,16 @@ export const meApi = {
   uploadPhoto: async (file: File): Promise<MeResponse> => {
     const formData = new FormData();
     formData.append("photo", file);
-    
-    const response = await apiClient.post("/api/me/profile/upload-photo", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+
+    const response = await apiClient.post(
+      "/api/me/profile/upload-photo",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   },
 
@@ -143,8 +151,17 @@ export const meApi = {
     filters?: AppointmentsFilter
   ): Promise<Appointment[]> => {
     const params = new URLSearchParams();
-    if (filters?.dateFrom) params.append("dateFrom", filters.dateFrom);
-    if (filters?.dateTo) params.append("dateTo", filters.dateTo);
+    // Используем короткие параметры from/to, если они указаны, иначе dateFrom/dateTo
+    if (filters?.from) {
+      params.append("from", filters.from);
+    } else if (filters?.dateFrom) {
+      params.append("dateFrom", filters.dateFrom);
+    }
+    if (filters?.to) {
+      params.append("to", filters.to);
+    } else if (filters?.dateTo) {
+      params.append("dateTo", filters.dateTo);
+    }
     if (filters?.status) params.append("status", filters.status);
     if (filters?.serviceId) params.append("serviceId", filters.serviceId);
     if (filters?.clientId) params.append("clientId", filters.clientId);
@@ -193,4 +210,3 @@ export const meApi = {
     await apiClient.delete(`/api/me/services/${id}`);
   },
 };
-
