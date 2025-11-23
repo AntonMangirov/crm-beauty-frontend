@@ -8,6 +8,8 @@ import {
   Card,
   CardContent,
   Chip,
+  Button,
+  ButtonGroup,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -15,7 +17,11 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { ru } from "date-fns/locale";
 import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { format, startOfDay, endOfDay } from "date-fns";
-import { CalendarToday as CalendarIcon } from "@mui/icons-material";
+import {
+  CalendarToday as CalendarIcon,
+  Check as CheckIcon,
+  Cancel as CancelIcon,
+} from "@mui/icons-material";
 import { meApi, type Appointment } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 
@@ -97,12 +103,77 @@ export const CalendarPage: React.FC = () => {
     return format(date, "HH:mm", { locale: ru });
   };
 
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return format(date, "dd.MM.yyyy", { locale: ru });
+  };
+
+  const handleConfirm = async (appointmentId: string) => {
+    try {
+      const updatedAppointment = await meApi.updateAppointmentStatus(
+        appointmentId,
+        "CONFIRMED"
+      );
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
+      );
+      showSnackbar("Запись подтверждена", "success");
+    } catch (err: any) {
+      console.error("Ошибка подтверждения записи:", err);
+      const errorMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Не удалось подтвердить запись";
+      showSnackbar(errorMessage, "error");
+    }
+  };
+
+  const handleCancel = async (appointmentId: string) => {
+    if (
+      !window.confirm("Вы уверены, что хотите отменить эту запись?")
+    ) {
+      return;
+    }
+
+    try {
+      const updatedAppointment = await meApi.updateAppointmentStatus(
+        appointmentId,
+        "CANCELED"
+      );
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
+      );
+      showSnackbar("Запись отменена", "success");
+    } catch (err: any) {
+      console.error("Ошибка отмены записи:", err);
+      const errorMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Не удалось отменить запись";
+      showSnackbar(errorMessage, "error");
+    }
+  };
+
   const columns: GridColDef[] = [
     {
       field: "client",
       headerName: "Клиент",
-      width: 200,
-      valueGetter: (value, row: Appointment) => row.client.name,
+      width: 250,
+      renderCell: (params: GridRenderCellParams<Appointment>) => {
+        const { name, phone } = params.row.client;
+        return (
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {name}
+            </Typography>
+            {phone && (
+              <Typography variant="caption" color="text.secondary">
+                {phone}
+              </Typography>
+            )}
+          </Box>
+        );
+      },
     },
     {
       field: "service",
@@ -111,23 +182,36 @@ export const CalendarPage: React.FC = () => {
       valueGetter: (value, row: Appointment) => row.service.name,
     },
     {
-      field: "startAt",
-      headerName: "Дата начала",
+      field: "dateTime",
+      headerName: "Дата / время",
       width: 180,
-      valueGetter: (value, row: Appointment) => formatDateTime(row.startAt),
+      renderCell: (params: GridRenderCellParams<Appointment>) => {
+        const date = formatDate(params.row.startAt);
+        const time = `${formatTime(params.row.startAt)} - ${formatTime(params.row.endAt)}`;
+        return (
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {date}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {time}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
-      field: "endAt",
-      headerName: "Дата конца",
-      width: 180,
-      valueGetter: (value, row: Appointment) => formatDateTime(row.endAt),
-    },
-    {
-      field: "timeRange",
-      headerName: "Время",
-      width: 150,
-      valueGetter: (value, row: Appointment) =>
-        `${formatTime(row.startAt)} - ${formatTime(row.endAt)}`,
+      field: "price",
+      headerName: "Цена",
+      width: 120,
+      renderCell: (params: GridRenderCellParams<Appointment>) => {
+        const price = params.row.price ?? params.row.service.price;
+        return (
+          <Typography variant="body2">
+            {price ? `${price.toLocaleString("ru-RU")} ₽` : "-"}
+          </Typography>
+        );
+      },
     },
     {
       field: "status",
@@ -141,6 +225,40 @@ export const CalendarPage: React.FC = () => {
             color={statusColors[status]}
             size="small"
           />
+        );
+      },
+    },
+    {
+      field: "actions",
+      headerName: "Действия",
+      width: 220,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<Appointment>) => {
+        const { id, status } = params.row;
+        const canConfirm = status === "PENDING";
+        const canCancel = status === "PENDING" || status === "CONFIRMED";
+
+        return (
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              startIcon={<CheckIcon />}
+              onClick={() => handleConfirm(id)}
+              disabled={!canConfirm}
+              color="primary"
+              sx={{ textTransform: "none" }}
+            >
+              Подтвердить
+            </Button>
+            <Button
+              startIcon={<CancelIcon />}
+              onClick={() => handleCancel(id)}
+              disabled={!canCancel}
+              color="error"
+              sx={{ textTransform: "none" }}
+            >
+              Отменить
+            </Button>
+          </ButtonGroup>
         );
       },
     },
