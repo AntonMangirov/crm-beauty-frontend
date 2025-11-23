@@ -31,14 +31,6 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               {/* Защищенные роуты кабинета мастера */}
               <Route
-                path="/master"
-                element={
-                  <ProtectedRoute>
-                    <MasterCabinet />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/master/*"
                 element={
                   <ProtectedRoute>

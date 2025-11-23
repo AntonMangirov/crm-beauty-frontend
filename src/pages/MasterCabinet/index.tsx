@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import {
   Box,
   Container,
@@ -158,239 +158,237 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
-          {/* Hero Section */}
-          <Card
-            sx={{
-              mb: { xs: 2, sm: 2.5 },
-              overflow: "hidden",
-              position: "relative",
+    <>
+      <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
+        {/* Hero Section */}
+        <Card
+          sx={{
+            mb: { xs: 2, sm: 2.5 },
+            overflow: "hidden",
+            position: "relative",
+            background: master.backgroundImageUrl
+              ? `url(${master.backgroundImageUrl})`
+              : "linear-gradient(135deg, #0F3B35 0%, #0A2D28 100%)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            border: "1px solid",
+            borderColor: "divider",
+            color: "white",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               background: master.backgroundImageUrl
-                ? `url(${master.backgroundImageUrl})`
-                : "linear-gradient(135deg, #0F3B35 0%, #0A2D28 100%)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              border: "1px solid",
-              borderColor: "divider",
-              color: "white",
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: master.backgroundImageUrl
-                  ? "linear-gradient(135deg, rgba(15, 59, 53, 0.85) 0%, rgba(10, 45, 40, 0.75) 100%)"
-                  : "none",
-                zIndex: 0,
-              },
-            }}
-          >
-            <Box
-              sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}
-            >
-              <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1.5 }}>
-                {/* Аватар */}
-                {master.photoUrl ? (
-                  <Avatar
-                    src={normalizeImageUrl(master.photoUrl)}
-                    alt={master.name}
+                ? "linear-gradient(135deg, rgba(15, 59, 53, 0.85) 0%, rgba(10, 45, 40, 0.75) 100%)"
+                : "none",
+              zIndex: 0,
+            },
+          }}
+        >
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1.5 }}>
+              {/* Аватар */}
+              {master.photoUrl ? (
+                <Avatar
+                  src={normalizeImageUrl(master.photoUrl)}
+                  alt={master.name}
+                  sx={{
+                    width: { xs: 64, sm: 80 },
+                    height: { xs: 64, sm: 80 },
+                    mr: { xs: 1.5, sm: 2 },
+                    border: "2px solid",
+                    borderColor: "white",
+                    boxShadow: 2,
+                  }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: { xs: 64, sm: 80 },
+                    height: { xs: 64, sm: 80 },
+                    bgcolor: "primary.main",
+                    color: "white",
+                    fontSize: { xs: "1.5rem", sm: "2rem" },
+                    fontWeight: 600,
+                    mr: { xs: 1.5, sm: 2 },
+                    border: "2px solid",
+                    borderColor: "white",
+                    boxShadow: 2,
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </Avatar>
+              )}
+
+              {/* Информация */}
+              <Box sx={{ flexGrow: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 0.5,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Typography
+                    variant="h5"
                     sx={{
-                      width: { xs: 64, sm: 80 },
-                      height: { xs: 64, sm: 80 },
-                      mr: { xs: 1.5, sm: 2 },
-                      border: "2px solid",
-                      borderColor: "white",
-                      boxShadow: 2,
-                    }}
-                  />
-                ) : (
-                  <Avatar
-                    sx={{
-                      width: { xs: 64, sm: 80 },
-                      height: { xs: 64, sm: 80 },
-                      bgcolor: "primary.main",
-                      color: "white",
-                      fontSize: { xs: "1.5rem", sm: "2rem" },
                       fontWeight: 600,
-                      mr: { xs: 1.5, sm: 2 },
-                      border: "2px solid",
-                      borderColor: "white",
-                      boxShadow: 2,
+                      fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      color: "white",
                     }}
                   >
-                    {master.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </Avatar>
-                )}
-
-                {/* Информация */}
-                <Box sx={{ flexGrow: 1 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 0.5,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <Typography
-                      variant="h5"
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
-                        color: "white",
-                      }}
-                    >
-                      {master.name}
-                    </Typography>
-                    {master.rating !== null && master.rating !== undefined && (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.25,
-                        }}
-                      >
-                        <StarIcon sx={{ fontSize: 16, color: "#FFD700" }} />
-                        <Typography variant="body2" sx={{ color: "white" }}>
-                          {master.rating.toFixed(1)}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-
-                  {master.address && (
+                    {master.name}
+                  </Typography>
+                  {master.rating !== null && master.rating !== undefined && (
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 0.5,
-                        mb: 1,
+                        gap: 0.25,
                       }}
                     >
-                      <LocationIcon
-                        fontSize="small"
-                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "rgba(255, 255, 255, 0.9)" }}
-                      >
-                        {master.address}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {master.phone && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        mb: 1,
-                      }}
-                    >
-                      <PhoneIcon
-                        fontSize="small"
-                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{ color: "rgba(255, 255, 255, 0.9)" }}
-                      >
-                        {master.phone}
+                      <StarIcon sx={{ fontSize: 16, color: "#FFD700" }} />
+                      <Typography variant="body2" sx={{ color: "white" }}>
+                        {master.rating.toFixed(1)}
                       </Typography>
                     </Box>
                   )}
                 </Box>
 
-                {/* Кнопка редактирования */}
-                <Button
-                  variant="contained"
-                  startIcon={<EditIcon />}
-                  onClick={handleEditClick}
-                  sx={{
-                    bgcolor: "rgba(255, 255, 255, 0.95)",
-                    color: "text.primary",
-                    "&:hover": {
-                      bgcolor: "white",
-                    },
-                  }}
-                >
-                  Редактировать профиль
-                </Button>
-              </Box>
-            </Box>
-          </Card>
-
-          {/* Описание и карта */}
-          {(master.description || (master.lat && master.lng)) && (
-            <Grid container spacing={2} sx={{ mb: { xs: 2, sm: 2.5 } }}>
-              {master.description && (
-                <Grid size={{ xs: 12, md: master.lat && master.lng ? 6 : 12 }}>
-                  <Card sx={{ height: "100%", p: { xs: 1.5, sm: 2 } }}>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
-                    >
-                      {master.description}
-                    </Typography>
-                  </Card>
-                </Grid>
-              )}
-
-              {master.lat && master.lng && (
-                <Grid size={{ xs: 12, md: master.description ? 6 : 12 }}>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        mb: 1,
-                        fontWeight: 600,
-                        fontSize: { xs: "0.875rem", sm: "1rem" },
-                      }}
-                    >
-                      Расположение
-                    </Typography>
-                    <LocationMapPreview
-                      lat={master.lat}
-                      lng={master.lng}
-                      address={master.address}
-                      masterName={master.name}
-                      height={{ xs: 200, sm: 250 }}
+                {master.address && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      mb: 1,
+                    }}
+                  >
+                    <LocationIcon
+                      fontSize="small"
+                      sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
                     />
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "rgba(255, 255, 255, 0.9)" }}
+                    >
+                      {master.address}
+                    </Typography>
                   </Box>
-                </Grid>
-              )}
-            </Grid>
-          )}
+                )}
 
-          {/* Услуги */}
-          <Box sx={{ mb: { xs: 2, sm: 2.5 } }}>
-            <Typography
-              variant="h6"
-              sx={{
-                mb: { xs: 1.5, sm: 2 },
-                fontWeight: 600,
-                fontSize: { xs: "1.25rem", sm: "1.5rem" },
-              }}
-            >
-              Услуги ({master.stats.activeServices})
-            </Typography>
+                {master.phone && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      mb: 1,
+                    }}
+                  >
+                    <PhoneIcon
+                      fontSize="small"
+                      sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "rgba(255, 255, 255, 0.9)" }}
+                    >
+                      {master.phone}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
 
-            {/* Здесь нужно будет загрузить услуги через API */}
-            <Typography variant="body2" color="text.secondary">
-              Список услуг будет загружен из API /me/services
-            </Typography>
+              {/* Кнопка редактирования */}
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={handleEditClick}
+                sx={{
+                  bgcolor: "rgba(255, 255, 255, 0.95)",
+                  color: "text.primary",
+                  "&:hover": {
+                    bgcolor: "white",
+                  },
+                }}
+              >
+                Редактировать профиль
+              </Button>
+            </Box>
           </Box>
-        </Container>
-      </Box>
+        </Card>
+
+        {/* Описание и карта */}
+        {(master.description || (master.lat && master.lng)) && (
+          <Grid container spacing={2} sx={{ mb: { xs: 2, sm: 2.5 } }}>
+            {master.description && (
+              <Grid size={{ xs: 12, md: master.lat && master.lng ? 6 : 12 }}>
+                <Card sx={{ height: "100%", p: { xs: 1.5, sm: 2 } }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
+                  >
+                    {master.description}
+                  </Typography>
+                </Card>
+              </Grid>
+            )}
+
+            {master.lat && master.lng && (
+              <Grid size={{ xs: 12, md: master.description ? 6 : 12 }}>
+                <Box>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      mb: 1,
+                      fontWeight: 600,
+                      fontSize: { xs: "0.875rem", sm: "1rem" },
+                    }}
+                  >
+                    Расположение
+                  </Typography>
+                  <LocationMapPreview
+                    lat={master.lat}
+                    lng={master.lng}
+                    address={master.address}
+                    masterName={master.name}
+                    height={{ xs: 200, sm: 250 }}
+                  />
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        )}
+
+        {/* Услуги */}
+        <Box sx={{ mb: { xs: 2, sm: 2.5 } }}>
+          <Typography
+            variant="h6"
+            sx={{
+              mb: { xs: 1.5, sm: 2 },
+              fontWeight: 600,
+              fontSize: { xs: "1.25rem", sm: "1.5rem" },
+            }}
+          >
+            Услуги ({master.stats.activeServices})
+          </Typography>
+
+          {/* Здесь нужно будет загрузить услуги через API */}
+          <Typography variant="body2" color="text.secondary">
+            Список услуг будет загружен из API /me/services
+          </Typography>
+        </Box>
+      </Container>
 
       {/* Диалог редактирования профиля */}
       <Dialog
@@ -520,7 +518,7 @@ export const ProfilePage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </>
   );
 };
 
