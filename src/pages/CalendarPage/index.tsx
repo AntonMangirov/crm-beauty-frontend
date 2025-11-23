@@ -49,6 +49,7 @@ export const CalendarPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -109,11 +110,14 @@ export const CalendarPage: React.FC = () => {
   };
 
   const handleConfirm = async (appointmentId: string) => {
+    setUpdatingStatus((prev) => new Set(prev).add(appointmentId));
     try {
+      // PUT запрос для обновления статуса
       const updatedAppointment = await meApi.updateAppointmentStatus(
         appointmentId,
         "CONFIRMED"
       );
+      // Обновляем состояние с полученными данными
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
@@ -125,6 +129,12 @@ export const CalendarPage: React.FC = () => {
         err?.response?.data?.message ||
         "Не удалось подтвердить запись";
       showSnackbar(errorMessage, "error");
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev);
+        next.delete(appointmentId);
+        return next;
+      });
     }
   };
 
@@ -135,11 +145,14 @@ export const CalendarPage: React.FC = () => {
       return;
     }
 
+    setUpdatingStatus((prev) => new Set(prev).add(appointmentId));
     try {
+      // PUT запрос для обновления статуса
       const updatedAppointment = await meApi.updateAppointmentStatus(
         appointmentId,
         "CANCELED"
       );
+      // Обновляем состояние с полученными данными
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
@@ -151,6 +164,12 @@ export const CalendarPage: React.FC = () => {
         err?.response?.data?.message ||
         "Не удалось отменить запись";
       showSnackbar(errorMessage, "error");
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev);
+        next.delete(appointmentId);
+        return next;
+      });
     }
   };
 
@@ -237,22 +256,23 @@ export const CalendarPage: React.FC = () => {
         const { id, status } = params.row;
         const canConfirm = status === "PENDING";
         const canCancel = status === "PENDING" || status === "CONFIRMED";
+        const isUpdating = updatingStatus.has(id);
 
         return (
           <ButtonGroup size="small" variant="outlined">
             <Button
               startIcon={<CheckIcon />}
               onClick={() => handleConfirm(id)}
-              disabled={!canConfirm}
+              disabled={!canConfirm || isUpdating}
               color="primary"
               sx={{ textTransform: "none" }}
             >
-              Подтвердить
+              {isUpdating ? "Обновление..." : "Подтвердить"}
             </Button>
             <Button
               startIcon={<CancelIcon />}
               onClick={() => handleCancel(id)}
-              disabled={!canCancel}
+              disabled={!canCancel || isUpdating}
               color="error"
               sx={{ textTransform: "none" }}
             >
