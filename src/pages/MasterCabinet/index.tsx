@@ -532,7 +532,7 @@ export const MasterCabinet: React.FC = () => {
         sx={{
           flexGrow: 1,
           bgcolor: "background.default",
-          ml: { md: "240px" },
+          width: { md: `calc(100% - 240px)` },
         }}
       >
         <Routes>

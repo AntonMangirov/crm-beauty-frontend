@@ -10,12 +10,17 @@ import {
   Chip,
   Button,
   ButtonGroup,
+  useMediaQuery,
+  useTheme,
+  Divider,
+  Stack,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { ru } from "date-fns/locale";
-import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
+import { DataGrid } from "@mui/x-data-grid";
+import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { format, startOfDay, endOfDay } from "date-fns";
 import {
   CalendarToday as CalendarIcon,
@@ -51,6 +56,8 @@ export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
   const { showSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
     if (selectedDate) {
@@ -250,7 +257,7 @@ export const CalendarPage: React.FC = () => {
     {
       field: "actions",
       headerName: "Действия",
-      width: 220,
+      width: 280,
       sortable: false,
       renderCell: (params: GridRenderCellParams<Appointment>) => {
         const { id, status } = params.row;
@@ -259,22 +266,32 @@ export const CalendarPage: React.FC = () => {
         const isUpdating = updatingStatus.has(id);
 
         return (
-          <ButtonGroup size="small" variant="outlined">
+          <ButtonGroup size="small" variant="outlined" sx={{ flexWrap: "nowrap" }}>
             <Button
               startIcon={<CheckIcon />}
               onClick={() => handleConfirm(id)}
               disabled={!canConfirm || isUpdating}
               color="primary"
-              sx={{ textTransform: "none" }}
+              sx={{ 
+                textTransform: "none",
+                fontSize: "0.75rem",
+                px: 1,
+                whiteSpace: "nowrap",
+              }}
             >
-              {isUpdating ? "Обновление..." : "Подтвердить"}
+              {isUpdating ? "..." : "Подтвердить"}
             </Button>
             <Button
               startIcon={<CancelIcon />}
               onClick={() => handleCancel(id)}
               disabled={!canCancel || isUpdating}
               color="error"
-              sx={{ textTransform: "none" }}
+              sx={{ 
+                textTransform: "none",
+                fontSize: "0.75rem",
+                px: 1,
+                whiteSpace: "nowrap",
+              }}
             >
               Отменить
             </Button>
@@ -301,15 +318,23 @@ export const CalendarPage: React.FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
-      <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
+      <Box 
+        sx={{ 
+          py: { xs: 1.5, sm: 2.5 },
+          px: { xs: 0.5, sm: 1, md: 1.5 },
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+        }}
+      >
         {/* Заголовок и DatePicker */}
         <Box
           sx={{
             display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: { xs: "stretch", sm: "center" },
             mb: { xs: 2, sm: 2.5 },
-            flexWrap: "wrap",
             gap: 2,
           }}
         >
@@ -323,8 +348,15 @@ export const CalendarPage: React.FC = () => {
             Календарь записей
           </Typography>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <CalendarIcon sx={{ color: "primary.main" }} />
+          <Box 
+            sx={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 1,
+              width: { xs: "100%", sm: "auto" },
+            }}
+          >
+            <CalendarIcon sx={{ color: "primary.main", display: { xs: "none", sm: "block" } }} />
             <DatePicker
               label="Выберите дату"
               value={selectedDate}
@@ -332,7 +364,10 @@ export const CalendarPage: React.FC = () => {
               slotProps={{
                 textField: {
                   size: "small",
-                  sx: { minWidth: 200 },
+                  fullWidth: isMobile,
+                  sx: { 
+                    minWidth: { xs: "100%", sm: 200 },
+                  },
                 },
               }}
             />
@@ -346,7 +381,7 @@ export const CalendarPage: React.FC = () => {
           </Alert>
         )}
 
-        {/* Таблица записей */}
+        {/* Таблица записей или карточки для мобильных */}
         {appointments.length === 0 ? (
           <Card>
             <CardContent>
@@ -357,8 +392,113 @@ export const CalendarPage: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
+        ) : isMobile ? (
+          // Мобильный вид - карточки
+          <Stack spacing={2}>
+            {appointments.map((appointment) => {
+              const { id, status, startAt, endAt, client, service, price } = appointment;
+              const canConfirm = status === "PENDING";
+              const canCancel = status === "PENDING" || status === "CONFIRMED";
+              const isUpdating = updatingStatus.has(id);
+              const displayPrice = price ?? service.price;
+
+              return (
+                <Card key={id} sx={{ width: "100%" }}>
+                  <CardContent>
+                    {/* Заголовок с клиентом и статусом */}
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {client.name}
+                        </Typography>
+                        {client.phone && (
+                          <Typography variant="body2" color="text.secondary">
+                            {client.phone}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip
+                        label={statusLabels[status]}
+                        color={statusColors[status]}
+                        size="small"
+                      />
+                    </Box>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    {/* Информация о записи */}
+                    <Stack spacing={1}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Услуга
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {service.name}
+                        </Typography>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Дата и время
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatDate(startAt)} {formatTime(startAt)} - {formatTime(endAt)}
+                        </Typography>
+                      </Box>
+
+                      {displayPrice && (
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Цена
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {displayPrice.toLocaleString("ru-RU")} ₽
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
+
+                    {/* Действия */}
+                    <Box sx={{ mt: 2, display: "flex", gap: 1, flexDirection: "column" }}>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        startIcon={<CheckIcon />}
+                        onClick={() => handleConfirm(id)}
+                        disabled={!canConfirm || isUpdating}
+                        color="primary"
+                        size="small"
+                        sx={{ textTransform: "none" }}
+                      >
+                        {isUpdating ? "Обновление..." : "Подтвердить"}
+                      </Button>
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        startIcon={<CancelIcon />}
+                        onClick={() => handleCancel(id)}
+                        disabled={!canCancel || isUpdating}
+                        color="error"
+                        size="small"
+                        sx={{ textTransform: "none" }}
+                      >
+                        Отменить
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
         ) : (
-          <Box sx={{ height: 600, width: "100%" }}>
+          // Десктопный вид - таблица
+          <Box 
+            sx={{ 
+              height: 600, 
+              width: "100%",
+              overflowX: "auto",
+            }}
+          >
             <DataGrid
               rows={appointments}
               columns={columns}
@@ -370,6 +510,8 @@ export const CalendarPage: React.FC = () => {
                 },
               }}
               sx={{
+                width: "100%",
+                minWidth: 800,
                 "& .MuiDataGrid-cell": {
                   fontSize: "0.875rem",
                 },
@@ -381,7 +523,7 @@ export const CalendarPage: React.FC = () => {
             />
           </Box>
         )}
-      </Container>
+      </Box>
     </LocalizationProvider>
   );
 };
