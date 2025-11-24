@@ -12,7 +12,7 @@ import {
   ListItemText,
   Chip,
 } from "@mui/material";
-import { LineChart } from "@mui/x-charts/LineChart";
+import { LineChart } from "@mui/x-charts";
 import {
   TrendingUp as TrendingUpIcon,
   CalendarToday as CalendarIcon,
