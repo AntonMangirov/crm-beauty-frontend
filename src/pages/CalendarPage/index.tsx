@@ -28,6 +28,8 @@ import {
   Check as CheckIcon,
   Cancel as CancelIcon,
   PhotoCamera as PhotoCameraIcon,
+  CheckCircle as CheckCircleIcon,
+  Image as ImageIcon,
 } from "@mui/icons-material";
 import { meApi, type Appointment } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
@@ -247,6 +249,33 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
+  const handleComplete = async (appointmentId: string) => {
+    setUpdatingStatus((prev) => new Set(prev).add(appointmentId));
+    try {
+      const updatedAppointment = await meApi.updateAppointmentStatus(
+        appointmentId,
+        "COMPLETED"
+      );
+      setAppointments((prev) =>
+        prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
+      );
+      showSnackbar("Запись завершена", "success");
+    } catch (err: any) {
+      console.error("Ошибка завершения записи:", err);
+      const errorMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Не удалось завершить запись";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setUpdatingStatus((prev) => {
+        const next = new Set(prev);
+        next.delete(appointmentId);
+        return next;
+      });
+    }
+  };
+
   const handleOpenPhotoUploader = (appointment: Appointment) => {
     setSelectedAppointmentForPhotos(appointment);
     setPhotoUploaderOpen(true);
@@ -333,6 +362,89 @@ export const CalendarPage: React.FC = () => {
       },
     },
     {
+      field: "photos",
+      headerName: "Фото",
+      width: 120,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<Appointment>) => {
+        const photos = params.row.photos || [];
+        const hasPhotos = photos.length > 0;
+        const isCompleted = params.row.status === "COMPLETED";
+
+        if (!isCompleted) {
+          return (
+            <Typography variant="body2" color="text.disabled">
+              —
+            </Typography>
+          );
+        }
+
+        if (!hasPhotos) {
+          return (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <ImageIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+              <Typography variant="caption" color="text.disabled">
+                Нет фото
+              </Typography>
+            </Box>
+          );
+        }
+
+        return (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              cursor: "pointer",
+            }}
+            onClick={() => handleOpenPhotoUploader(params.row)}
+          >
+            <Box sx={{ display: "flex", gap: 0.25 }}>
+              {photos.slice(0, 2).map((photo) => (
+                <Box
+                  key={photo.id}
+                  component="img"
+                  src={normalizeImageUrl(photo.url)}
+                  alt=""
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    objectFit: "cover",
+                    borderRadius: 0.5,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                />
+              ))}
+              {photos.length > 2 && (
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 0.5,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "action.hover",
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+                    +{photos.length - 2}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+              ({photos.length})
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
       field: "actions",
       headerName: "Действия",
       width: 380,
@@ -341,39 +453,60 @@ export const CalendarPage: React.FC = () => {
         const { id, status } = params.row;
         const canConfirm = status === "PENDING";
         const canCancel = status === "PENDING" || status === "CONFIRMED";
+        const canComplete = status === "CONFIRMED" || status === "PENDING";
         const canAddPhotos = status === "COMPLETED";
         const isUpdating = updatingStatus.has(id);
 
         return (
           <ButtonGroup size="small" variant="outlined" sx={{ flexWrap: "nowrap" }}>
-            <Button
-              startIcon={<CheckIcon />}
-              onClick={() => handleConfirm(id)}
-              disabled={!canConfirm || isUpdating}
-              color="primary"
-              sx={{ 
-                textTransform: "none",
-                fontSize: "0.75rem",
-                px: 1,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {isUpdating ? "..." : "Подтвердить"}
-            </Button>
-            <Button
-              startIcon={<CancelIcon />}
-              onClick={() => handleCancel(id)}
-              disabled={!canCancel || isUpdating}
-              color="error"
-              sx={{ 
-                textTransform: "none",
-                fontSize: "0.75rem",
-                px: 1,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Отменить
-            </Button>
+            {canConfirm && (
+              <Button
+                startIcon={<CheckIcon />}
+                onClick={() => handleConfirm(id)}
+                disabled={isUpdating}
+                color="primary"
+                sx={{ 
+                  textTransform: "none",
+                  fontSize: "0.75rem",
+                  px: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isUpdating ? "..." : "Подтвердить"}
+              </Button>
+            )}
+            {canComplete && status !== "PENDING" && (
+              <Button
+                startIcon={<CheckCircleIcon />}
+                onClick={() => handleComplete(id)}
+                disabled={isUpdating}
+                color="success"
+                sx={{ 
+                  textTransform: "none",
+                  fontSize: "0.75rem",
+                  px: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Завершить
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                startIcon={<CancelIcon />}
+                onClick={() => handleCancel(id)}
+                disabled={isUpdating}
+                color="error"
+                sx={{ 
+                  textTransform: "none",
+                  fontSize: "0.75rem",
+                  px: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Отменить
+              </Button>
+            )}
             {canAddPhotos && (
               <Button
                 startIcon={<PhotoCameraIcon />}
@@ -570,6 +703,7 @@ export const CalendarPage: React.FC = () => {
               const { id, status, startAt, endAt, client, service, price } = appointment;
               const canConfirm = status === "PENDING";
               const canCancel = status === "PENDING" || status === "CONFIRMED";
+              const canComplete = status === "CONFIRMED" || status === "PENDING";
               const isUpdating = updatingStatus.has(id);
               const displayPrice = price ?? service.price;
 
@@ -677,30 +811,48 @@ export const CalendarPage: React.FC = () => {
 
                     {/* Действия */}
                     <Box sx={{ mt: 2, display: "flex", gap: 1, flexDirection: "column" }}>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        startIcon={<CheckIcon />}
-                        onClick={() => handleConfirm(id)}
-                        disabled={!canConfirm || isUpdating}
-                        color="primary"
-                        size="small"
-                        sx={{ textTransform: "none" }}
-                      >
-                        {isUpdating ? "Обновление..." : "Подтвердить"}
-                      </Button>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        startIcon={<CancelIcon />}
-                        onClick={() => handleCancel(id)}
-                        disabled={!canCancel || isUpdating}
-                        color="error"
-                        size="small"
-                        sx={{ textTransform: "none" }}
-                      >
-                        Отменить
-                      </Button>
+                      {canConfirm && (
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          startIcon={<CheckIcon />}
+                          onClick={() => handleConfirm(id)}
+                          disabled={isUpdating}
+                          color="primary"
+                          size="small"
+                          sx={{ textTransform: "none" }}
+                        >
+                          {isUpdating ? "Обновление..." : "Подтвердить"}
+                        </Button>
+                      )}
+                      {canComplete && status !== "PENDING" && (
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          startIcon={<CheckCircleIcon />}
+                          onClick={() => handleComplete(id)}
+                          disabled={isUpdating}
+                          color="success"
+                          size="small"
+                          sx={{ textTransform: "none" }}
+                        >
+                          {isUpdating ? "Обновление..." : "Завершить"}
+                        </Button>
+                      )}
+                      {canCancel && (
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<CancelIcon />}
+                          onClick={() => handleCancel(id)}
+                          disabled={isUpdating}
+                          color="error"
+                          size="small"
+                          sx={{ textTransform: "none" }}
+                        >
+                          Отменить
+                        </Button>
+                      )}
                       {status === "COMPLETED" && (
                         <Button
                           fullWidth
@@ -743,7 +895,7 @@ export const CalendarPage: React.FC = () => {
               }}
               sx={{
                 width: "100%",
-                minWidth: 800,
+                minWidth: 1000,
                 "& .MuiDataGrid-cell": {
                   fontSize: "0.875rem",
                 },

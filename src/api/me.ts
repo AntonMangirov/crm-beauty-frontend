@@ -111,6 +111,7 @@ export interface ClientListItem {
   phone: string | null;
   lastVisit: string | null; // ISO date string
   visitsCount: number;
+  photosCount: number; // Количество фото у клиента
 }
 
 export interface ClientHistoryPhoto {

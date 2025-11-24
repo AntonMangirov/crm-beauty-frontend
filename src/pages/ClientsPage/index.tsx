@@ -13,7 +13,7 @@ import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { People as PeopleIcon } from "@mui/icons-material";
+import { People as PeopleIcon, PhotoCamera as PhotoCameraIcon, Image as ImageIcon } from "@mui/icons-material";
 import { meApi, type ClientListItem } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { ClientHistoryModal } from "../../components/ClientHistoryModal";
@@ -101,6 +101,42 @@ export const ClientsPage: React.FC = () => {
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
             {params.row.visitsCount}
           </Typography>
+        );
+      },
+    },
+    {
+      field: "photos",
+      headerName: "Фото",
+      width: 100,
+      flex: isMobile ? 0 : 0.6,
+      minWidth: 80,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<ClientListItem>) => {
+        const photosCount = params.row.photosCount || 0;
+        
+        if (photosCount === 0) {
+          return (
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
+              <ImageIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+            </Box>
+          );
+        }
+
+        return (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 0.5,
+            }}
+          >
+            <PhotoCameraIcon sx={{ fontSize: 18, color: "success.main" }} />
+            <Typography variant="body2" sx={{ fontWeight: 500, color: "success.main" }}>
+              {photosCount}
+            </Typography>
+          </Box>
         );
       },
     },
