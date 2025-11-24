@@ -103,13 +103,21 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    setAnchorEl(null);
-    showSnackbar("Вы вышли из системы", "info");
-    // Отправляем событие для обновления других компонентов
-    window.dispatchEvent(new Event("authChange"));
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      // Вызываем logout endpoint для очистки refresh token на сервере
+      await apiClient.post("/api/auth/logout");
+    } catch (error) {
+      // Игнорируем ошибки при logout (может быть уже невалидный токен)
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("authToken");
+      setAnchorEl(null);
+      showSnackbar("Вы вышли из системы", "info");
+      // Отправляем событие для обновления других компонентов
+      window.dispatchEvent(new Event("authChange"));
+      navigate("/");
+    }
   };
 
   return (
