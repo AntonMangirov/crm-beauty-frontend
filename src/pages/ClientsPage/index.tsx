@@ -172,7 +172,15 @@ export const ClientsPage: React.FC = () => {
       </Box>
 
       {/* Таблица */}
-      <Card sx={{ overflow: "hidden" }}>
+      <Card
+        sx={{
+          overflow: "hidden",
+          "&:hover": {
+            transform: "none",
+            boxShadow: 3,
+          },
+        }}
+      >
         <DataGrid
           rows={clients}
           columns={columns}
@@ -191,6 +199,7 @@ export const ClientsPage: React.FC = () => {
             cursor: "pointer",
             "& .MuiDataGrid-row:hover": {
               bgcolor: "action.hover",
+              transform: "none",
             },
             "& .MuiDataGrid-cell": {
               borderBottom: "1px solid",

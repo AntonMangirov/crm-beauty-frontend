@@ -27,9 +27,12 @@ import {
   CalendarToday as CalendarIcon,
   Check as CheckIcon,
   Cancel as CancelIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from "@mui/icons-material";
 import { meApi, type Appointment } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
+import { PhotoUploader } from "../../components/PhotoUploader";
+import { normalizeImageUrl } from "../../utils/imageUrl";
 
 const statusColors: Record<
   Appointment["status"],
@@ -57,6 +60,8 @@ export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
+  const [photoUploaderOpen, setPhotoUploaderOpen] = useState(false);
+  const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
   // Выходные дни мастера (опционально выставляются мастером через настройки)
   // Формат: Set дат в формате "yyyy-MM-dd"
   // TODO: Загружать из API /api/me/days-off при монтировании компонента
@@ -242,6 +247,17 @@ export const CalendarPage: React.FC = () => {
     }
   };
 
+  const handleOpenPhotoUploader = (appointment: Appointment) => {
+    setSelectedAppointmentForPhotos(appointment);
+    setPhotoUploaderOpen(true);
+  };
+
+  const handlePhotosUpdated = async () => {
+    if (selectedAppointmentForPhotos) {
+      await loadAppointments();
+    }
+  };
+
   const columns: GridColDef[] = [
     {
       field: "client",
@@ -319,12 +335,13 @@ export const CalendarPage: React.FC = () => {
     {
       field: "actions",
       headerName: "Действия",
-      width: 280,
+      width: 380,
       sortable: false,
       renderCell: (params: GridRenderCellParams<Appointment>) => {
         const { id, status } = params.row;
         const canConfirm = status === "PENDING";
         const canCancel = status === "PENDING" || status === "CONFIRMED";
+        const canAddPhotos = status === "COMPLETED";
         const isUpdating = updatingStatus.has(id);
 
         return (
@@ -357,6 +374,21 @@ export const CalendarPage: React.FC = () => {
             >
               Отменить
             </Button>
+            {canAddPhotos && (
+              <Button
+                startIcon={<PhotoCameraIcon />}
+                onClick={() => handleOpenPhotoUploader(params.row)}
+                color="success"
+                sx={{ 
+                  textTransform: "none",
+                  fontSize: "0.75rem",
+                  px: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Фото
+              </Button>
+            )}
           </ButtonGroup>
         );
       },
@@ -597,6 +629,52 @@ export const CalendarPage: React.FC = () => {
                       )}
                     </Stack>
 
+                    {/* Фото (только для завершенных записей) */}
+                    {status === "COMPLETED" && appointment.photos && appointment.photos.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                          Фото работ
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                          {appointment.photos.slice(0, 3).map((photo) => (
+                            <Box
+                              key={photo.id}
+                              component="img"
+                              src={normalizeImageUrl(photo.url)}
+                              alt={photo.description || "Фото"}
+                              sx={{
+                                width: 60,
+                                height: 60,
+                                objectFit: "cover",
+                                borderRadius: 1,
+                                border: "1px solid",
+                                borderColor: "divider",
+                              }}
+                            />
+                          ))}
+                          {appointment.photos.length > 3 && (
+                            <Box
+                              sx={{
+                                width: 60,
+                                height: 60,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: 1,
+                                border: "1px solid",
+                                borderColor: "divider",
+                                bgcolor: "action.hover",
+                              }}
+                            >
+                              <Typography variant="caption" color="text.secondary">
+                                +{appointment.photos.length - 3}
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    )}
+
                     {/* Действия */}
                     <Box sx={{ mt: 2, display: "flex", gap: 1, flexDirection: "column" }}>
                       <Button
@@ -623,6 +701,21 @@ export const CalendarPage: React.FC = () => {
                       >
                         Отменить
                       </Button>
+                      {status === "COMPLETED" && (
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          startIcon={<PhotoCameraIcon />}
+                          onClick={() => handleOpenPhotoUploader(appointment)}
+                          color="success"
+                          size="small"
+                          sx={{ textTransform: "none" }}
+                        >
+                          {appointment.photos && appointment.photos.length > 0
+                            ? `Фото (${appointment.photos.length})`
+                            : "Добавить фото"}
+                        </Button>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -661,6 +754,20 @@ export const CalendarPage: React.FC = () => {
               }}
             />
           </Box>
+        )}
+
+        {/* Диалог загрузки фото */}
+        {selectedAppointmentForPhotos && (
+          <PhotoUploader
+            open={photoUploaderOpen}
+            onClose={() => {
+              setPhotoUploaderOpen(false);
+              setSelectedAppointmentForPhotos(null);
+            }}
+            appointmentId={selectedAppointmentForPhotos.id}
+            existingPhotos={selectedAppointmentForPhotos.photos || []}
+            onPhotosUpdated={handlePhotosUpdated}
+          />
         )}
       </Box>
     </LocalizationProvider>

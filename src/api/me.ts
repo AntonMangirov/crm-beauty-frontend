@@ -63,6 +63,7 @@ export interface Appointment {
     price: number;
     durationMin: number;
   };
+  photos?: ClientHistoryPhoto[];
 }
 
 export interface AppointmentsFilter {
@@ -267,5 +268,51 @@ export const meApi = {
   getClientHistory: async (clientId: string): Promise<ClientHistoryItem[]> => {
     const response = await apiClient.get(`/api/me/clients/${clientId}/history`);
     return response.data;
+  },
+
+  /**
+   * POST /api/me/appointments/:id/photos
+   * Загрузить фото к записи
+   */
+  uploadAppointmentPhotos: async (
+    appointmentId: string,
+    files: File[],
+    descriptions?: string[]
+  ): Promise<{ photos: ClientHistoryPhoto[] }> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("photos", file);
+    });
+    if (descriptions) {
+      descriptions.forEach((desc, index) => {
+        if (desc) {
+          formData.append(`description`, desc);
+        }
+      });
+    }
+
+    const response = await apiClient.post(
+      `/api/me/appointments/${appointmentId}/photos`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * DELETE /api/me/appointments/:id/photos/:photoId
+   * Удалить фото из записи
+   */
+  deleteAppointmentPhoto: async (
+    appointmentId: string,
+    photoId: string
+  ): Promise<void> => {
+    await apiClient.delete(
+      `/api/me/appointments/${appointmentId}/photos/${photoId}`
+    );
   },
 };
