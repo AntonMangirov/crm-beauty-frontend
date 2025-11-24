@@ -28,6 +28,7 @@ import { LocationMapPreview } from "../../components/LocationMapPreview";
 import { ServicesPage } from "../ServicesPage";
 import { CalendarPage } from "../CalendarPage";
 import { ClientsPage } from "../ClientsPage";
+import { AnalyticsPage } from "../AnalyticsPage";
 import {
   meApi,
   type MeResponse,
@@ -541,6 +542,7 @@ export const MasterCabinet: React.FC = () => {
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
         </Routes>
       </Box>
     </Box>

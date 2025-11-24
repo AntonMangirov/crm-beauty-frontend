@@ -133,6 +133,17 @@ export interface ClientHistoryItem {
   photos: ClientHistoryPhoto[];
 }
 
+export interface AnalyticsResponse {
+  appointmentsCount: number;
+  revenue: number;
+  topServices: Array<{
+    id: string;
+    name: string;
+    count: number;
+  }>;
+  newClientsPercentage: number;
+}
+
 export const meApi = {
   /**
    * GET /api/me
@@ -140,6 +151,15 @@ export const meApi = {
    */
   getMe: async (): Promise<MeResponse> => {
     const response = await apiClient.get("/api/me");
+    return response.data;
+  },
+
+  /**
+   * GET /api/me/analytics
+   * Получить аналитику за текущий месяц
+   */
+  getAnalytics: async (): Promise<AnalyticsResponse> => {
+    const response = await apiClient.get("/api/me/analytics");
     return response.data;
   },
 
