@@ -67,7 +67,6 @@ export async function getRecaptchaToken(
         window.grecaptcha
           .execute(siteKey, { action })
           .then((token) => {
-            console.log('[reCAPTCHA] Токен получен успешно');
             resolve(token);
           })
           .catch((error) => {

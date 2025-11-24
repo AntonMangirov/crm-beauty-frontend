@@ -105,25 +105,18 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
 
         setAvailableSlots(formattedSlots);
       } catch (error: unknown) {
-        console.error("Ошибка загрузки временных слотов:", error);
-        if (error && typeof error === "object" && "response" in error) {
-          const axiosError = error as {
-            response?: { status?: number; data?: unknown };
-            message?: string;
-          };
-          console.error("Детали ошибки:", {
-            status: axiosError.response?.status,
-            data: axiosError.response?.data,
-            message: axiosError.message,
-          });
-        }
-
+        // Обрабатываем ошибку загрузки временных слотов
+        const axiosError = error as {
+          response?: { status?: number; data?: { message?: string; error?: string } };
+        };
+        
         const errorMessage =
-          error.response?.data?.message ||
-          error.response?.data?.error ||
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
           "Не удалось загрузить доступное время";
         setSlotsError(errorMessage);
-        // Fallback к хардкоду в случае ошибки
+        
+        // Fallback: показываем стандартные временные слоты при ошибке
         const fallbackSlots = [];
         for (let hour = 9; hour <= 18; hour++) {
           fallbackSlots.push(`${hour.toString().padStart(2, "0")}:00`);

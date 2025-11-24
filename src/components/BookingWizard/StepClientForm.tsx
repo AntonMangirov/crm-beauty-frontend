@@ -130,9 +130,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
     }
 
     setErrors(newErrors);
-    const isValid = Object.keys(newErrors).length === 0;
-    console.log("Результат валидации:", { isValid, errors: newErrors });
-    return isValid;
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleInputChange = (field: keyof ClientFormData, value: string) => {
@@ -203,7 +201,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
         phone: normalizedPhone,
       });
     } catch (error) {
-      console.error("Ошибка отправки формы:", error);
+      // Ошибка обрабатывается в родительском компоненте
     } finally {
       setIsSubmitting(false);
     }

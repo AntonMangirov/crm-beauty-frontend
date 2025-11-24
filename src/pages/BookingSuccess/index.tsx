@@ -45,7 +45,6 @@ export const BookingSuccess: React.FC = () => {
     if (!dateString) return "Не указано";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-      console.error("Invalid date string:", dateString);
       return "Неверная дата";
     }
     return new Intl.DateTimeFormat("ru-RU", {
@@ -59,7 +58,6 @@ export const BookingSuccess: React.FC = () => {
     if (!dateString) return "Не указано";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-      console.error("Invalid time string:", dateString);
       return "Неверное время";
     }
     return new Intl.DateTimeFormat("ru-RU", {

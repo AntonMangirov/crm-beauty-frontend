@@ -12,30 +12,13 @@ export const apiClient = axios.create({
   },
 });
 
-// Интерцептор для добавления токена авторизации
+// Интерцептор для добавления токена авторизации к каждому запросу
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // Логируем данные запроса для отладки
-    if (config.data && config.method === "post") {
-      console.log(
-        "[API] Отправляем данные:",
-        JSON.stringify(config.data, null, 2)
-      );
-      console.log(
-        "[API] Типы данных:",
-        Object.keys(config.data).reduce((acc, key) => {
-          const value = config.data[key];
-          acc[key] = value instanceof Date ? "Date" : typeof value;
-          return acc;
-        }, {} as Record<string, string>)
-      );
-    }
-
     return config;
   },
   (error) => {

@@ -68,14 +68,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         );
         if (serviceExists) {
           setSelectedServices([preselectedServiceId]);
-        } else {
-          console.warn(
-            `Услуга ${preselectedServiceId} не найдена у мастера ${masterSlug}`
-          );
         }
       }
     } catch (err) {
-      console.error("Ошибка загрузки мастера:", err);
       setError("Не удалось загрузить данные мастера");
     } finally {
       setLoading(false);
@@ -99,21 +94,13 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   };
 
   const handleFormSubmit = async (formData: ClientFormData) => {
-    console.log("handleFormSubmit вызван с данными:", formData);
-    console.log("Проверка данных:", {
-      master: !!master,
-      selectedServices: selectedServices.length,
-      selectedDate,
-      selectedTime,
-    });
-
+    // Проверяем наличие всех необходимых данных для создания записи
     if (
       !master ||
       selectedServices.length === 0 ||
       !selectedDate ||
       !selectedTime
     ) {
-      console.error("Недостаточно данных для создания записи");
       const errorMsg =
         "Не все данные заполнены. Пожалуйста, вернитесь к предыдущим шагам.";
       setError(errorMsg);
@@ -125,13 +112,12 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
     setError(null);
 
     try {
-      // Преобразуем выбранное время обратно в UTC
+      // Преобразуем выбранное время в UTC формат для отправки на сервер
       // selectedTime в формате "HH:MM" (UTC время из API)
       // selectedDate - локальная дата из DatePicker
       const [hours, minutes] = selectedTime.split(":").map(Number);
       
-      // Используем локальные компоненты даты (DatePicker возвращает локальную дату)
-      // и создаём UTC дату с UTC временем
+      // Используем локальные компоненты даты и создаём UTC дату с UTC временем
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
       const day = selectedDate.getDate();
@@ -146,7 +132,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         );
       }
 
-      // Получаем токен reCAPTCHA перед отправкой
+      // Получаем токен reCAPTCHA для защиты от ботов
       const recaptchaToken = await getRecaptchaToken('booking');
 
       const bookingData = {
@@ -200,8 +186,6 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         onBookingComplete(response.id);
       }
     } catch (err: unknown) {
-      console.error("Ошибка создания записи:", err);
-
       const error = err as any; // eslint-disable-line @typescript-eslint/no-explicit-any
       let errorMessage = "Не удалось создать запись. Попробуйте еще раз.";
 

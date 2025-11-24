@@ -24,7 +24,6 @@ export const BookPage: React.FC = () => {
   };
 
   const handleBookingComplete = (appointmentId: string) => {
-    console.log("Запись создана:", appointmentId);
     navigate("/booking-success", {
       state: { appointmentId, masterSlug: slug },
     });
