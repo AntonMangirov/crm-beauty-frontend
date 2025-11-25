@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { CircularProgress, Box } from "@mui/material";
+import { meApi } from "../api/me";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,21 +9,34 @@ interface ProtectedRouteProps {
 
 /**
  * Компонент защищенного роута
- * Проверяет наличие токена и перенаправляет на логин если токена нет
+ * Проверяет наличие и валидность токена через API запрос
+ * Перенаправляет на логин если токена нет или он невалидный
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [isChecking, setIsChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const token = localStorage.getItem("authToken");
-      if (token) {
-        setIsAuthenticated(true);
-      } else {
+      
+      if (!token) {
         setIsAuthenticated(false);
+        setIsChecking(false);
+        return;
       }
-      setIsChecking(false);
+
+      try {
+        // Проверяем валидность токена через API запрос
+        await meApi.getMe();
+        setIsAuthenticated(true);
+      } catch (error) {
+        // Если токен невалидный, очищаем его и редиректим на логин
+        localStorage.removeItem("authToken");
+        setIsAuthenticated(false);
+      } finally {
+        setIsChecking(false);
+      }
     };
 
     checkAuth();

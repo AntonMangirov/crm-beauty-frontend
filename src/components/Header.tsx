@@ -14,11 +14,14 @@ import {
   Menu,
   MenuItem,
   Alert,
+  Avatar,
 } from "@mui/material";
 import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api";
+import { meApi, MeResponse } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
+import { normalizeImageUrl } from "../utils/imageUrl";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -37,12 +40,35 @@ export const Header: React.FC<HeaderProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [master, setMaster] = useState<MeResponse | null>(null);
+  const [loadingMaster, setLoadingMaster] = useState(false);
 
   useEffect(() => {
+    // Загружаем данные мастера при монтировании компонента
+    const loadMaster = async () => {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        try {
+          setLoadingMaster(true);
+          const masterData = await meApi.getMe();
+          setMaster(masterData);
+        } catch (error) {
+          // Если токен невалидный, очищаем его
+          localStorage.removeItem("authToken");
+          setMaster(null);
+        } finally {
+          setLoadingMaster(false);
+        }
+      } else {
+        setMaster(null);
+      }
+    };
+
+    loadMaster();
+
     // Слушаем изменения токена (для обновления при выходе из других компонентов)
     const handleStorageChange = () => {
-      // Просто обновляем компонент при изменении токена
-      // Состояние проверяется в handleAccountClick
+      loadMaster();
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -87,6 +113,15 @@ export const Header: React.FC<HeaderProps> = ({
       setEmail("");
       setPassword("");
       showSnackbar("Успешный вход!", "success");
+
+      // Загружаем данные мастера после успешного входа
+      try {
+        const masterData = await meApi.getMe();
+        setMaster(masterData);
+      } catch (error) {
+        console.error("Ошибка загрузки данных мастера:", error);
+      }
+
       // Отправляем событие для обновления других компонентов
       window.dispatchEvent(new Event("authChange"));
 
@@ -112,6 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
       console.error("Logout error:", error);
     } finally {
       localStorage.removeItem("authToken");
+      setMaster(null);
       setAnchorEl(null);
       showSnackbar("Вы вышли из системы", "info");
       // Отправляем событие для обновления других компонентов
@@ -182,18 +218,76 @@ export const Header: React.FC<HeaderProps> = ({
           >
             Услуги
           </Button>
-          <IconButton
-            color="inherit"
-            onClick={handleAccountClick}
-            sx={{
-              ml: 1,
-              "&:hover": {
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-              },
-            }}
-          >
-            <AccountCircle />
-          </IconButton>
+          {master ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                ml: 1,
+                cursor: "pointer",
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
+              }}
+              onClick={handleAccountClick}
+            >
+              {master.photoUrl ? (
+                <Avatar
+                  src={normalizeImageUrl(master.photoUrl)}
+                  alt={master.name}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                  }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: "rgba(255, 255, 255, 0.2)",
+                    color: "white",
+                    fontSize: "0.875rem",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </Avatar>
+              )}
+              <Typography
+                variant="body2"
+                sx={{
+                  display: { xs: "none", sm: "block" },
+                  fontWeight: 500,
+                }}
+              >
+                {master.name}
+              </Typography>
+            </Box>
+          ) : (
+            <IconButton
+              color="inherit"
+              onClick={handleAccountClick}
+              sx={{
+                ml: 1,
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
+              }}
+            >
+              <AccountCircle />
+            </IconButton>
+          )}
         </Box>
       </Toolbar>
 
@@ -211,6 +305,43 @@ export const Header: React.FC<HeaderProps> = ({
           horizontal: "right",
         }}
       >
+        {master && (
+          <MenuItem disabled sx={{ opacity: 1, cursor: "default" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {master.photoUrl ? (
+                <Avatar
+                  src={normalizeImageUrl(master.photoUrl)}
+                  alt={master.name}
+                  sx={{ width: 32, height: 32 }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: "primary.main",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </Avatar>
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {master.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {master.email}
+                </Typography>
+              </Box>
+            </Box>
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             handleMenuClose();

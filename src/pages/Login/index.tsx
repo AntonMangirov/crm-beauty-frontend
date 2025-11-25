@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Container,
@@ -11,6 +11,7 @@ import {
   Link,
 } from "@mui/material";
 import { apiClient } from "../../api";
+import { meApi } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 
 export const Login: React.FC = () => {
@@ -18,8 +19,30 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
+
+  // Проверяем, не залогинен ли уже пользователь
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        try {
+          // Проверяем валидность токена
+          await meApi.getMe();
+          // Если токен валидный, редиректим на кабинет мастера
+          navigate("/master", { replace: true });
+        } catch (error) {
+          // Если токен невалидный, очищаем его и показываем форму логина
+          localStorage.removeItem("authToken");
+        }
+      }
+      setCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +58,8 @@ export const Login: React.FC = () => {
       const { token } = response.data;
       localStorage.setItem("authToken", token);
       showSnackbar("Успешный вход!", "success");
+      // Отправляем событие для обновления других компонентов
+      window.dispatchEvent(new Event("authChange"));
       navigate("/master");
     } catch (err: unknown) {
       let errorMessage = "Ошибка входа. Проверьте данные.";
@@ -48,6 +73,24 @@ export const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <Container maxWidth="sm">
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "80vh",
+          }}
+        >
+          <Typography>Проверка авторизации...</Typography>
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="sm">
