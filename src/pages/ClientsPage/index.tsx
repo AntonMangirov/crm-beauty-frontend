@@ -3,11 +3,18 @@ import {
   Box,
   Container,
   Typography,
-  CircularProgress,
   Alert,
   Card,
   useMediaQuery,
   useTheme,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
@@ -156,29 +163,6 @@ export const ClientsPage: React.FC = () => {
     },
   ];
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
-    );
-  }
-
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
       {/* Заголовок */}
@@ -207,52 +191,93 @@ export const ClientsPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Таблица */}
-      <Card
-        sx={{
-          overflow: "hidden",
-          "&:hover": {
-            transform: "none",
-            boxShadow: 3,
-          },
-        }}
-      >
-        <DataGrid
-          rows={clients}
-          columns={columns}
-          getRowId={(row) => row.id}
-          autoHeight
-          disableRowSelectionOnClick
-          onRowClick={handleRowClick}
-          pageSizeOptions={[10, 25, 50, 100]}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 },
-            },
-          }}
+      {/* Ошибка */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Skeleton таблицы при загрузке */}
+      {loading ? (
+        <Card
           sx={{
-            border: "none",
-            cursor: "pointer",
-            "& .MuiDataGrid-row:hover": {
-              bgcolor: "action.hover",
+            overflow: "hidden",
+          }}
+        >
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  {columns.map((column, index) => (
+                    <TableCell key={index}>
+                      <Skeleton variant="text" width={column.width || 150} height={24} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+                  <TableRow key={row}>
+                    {columns.map((column, index) => (
+                      <TableCell key={index}>
+                        <Skeleton variant="text" width="80%" height={20} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      ) : (
+        /* Таблица */
+        <Card
+          sx={{
+            overflow: "hidden",
+            "&:hover": {
               transform: "none",
-            },
-            "& .MuiDataGrid-cell": {
-              borderBottom: "1px solid",
-              borderColor: "divider",
-            },
-            "& .MuiDataGrid-columnHeaders": {
-              borderBottom: "2px solid",
-              borderColor: "divider",
-              bgcolor: "background.paper",
-            },
-            "& .MuiDataGrid-footerContainer": {
-              borderTop: "1px solid",
-              borderColor: "divider",
+              boxShadow: 3,
             },
           }}
-        />
-      </Card>
+        >
+          <DataGrid
+            rows={clients}
+            columns={columns}
+            getRowId={(row) => row.id}
+            autoHeight
+            disableRowSelectionOnClick
+            onRowClick={handleRowClick}
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25 },
+              },
+            }}
+            sx={{
+              border: "none",
+              cursor: "pointer",
+              "& .MuiDataGrid-row:hover": {
+                bgcolor: "action.hover",
+                transform: "none",
+              },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "1px solid",
+                borderColor: "divider",
+              },
+              "& .MuiDataGrid-columnHeaders": {
+                borderBottom: "2px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+              },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: "1px solid",
+                borderColor: "divider",
+              },
+            }}
+          />
+        </Card>
+      )}
 
       {/* Модальное окно истории клиента */}
       <ClientHistoryModal

@@ -4,10 +4,10 @@ import {
   Container,
   Typography,
   Button,
-  CircularProgress,
   Alert,
   Card,
   CardContent,
+  Skeleton,
 } from "@mui/material";
 import { Add as AddIcon } from "@mui/icons-material";
 import { ServiceItem } from "../../components/ServiceItem";
@@ -100,21 +100,6 @@ export const ServicesPage: React.FC = () => {
     setEditDialogOpen(true);
   };
 
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <>
         <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
@@ -141,6 +126,7 @@ export const ServicesPage: React.FC = () => {
               startIcon={<AddIcon />}
               onClick={() => setAddDialogOpen(true)}
               sx={{ textTransform: "none" }}
+              disabled={loading}
             >
               Добавить услугу
             </Button>
@@ -153,26 +139,76 @@ export const ServicesPage: React.FC = () => {
             </Alert>
           )}
 
-          {/* Список услуг */}
-          {services.length === 0 ? (
-            <Card>
-              <CardContent>
-                <Typography variant="body1" color="text.secondary" align="center">
-                  У вас пока нет услуг. Добавьте первую услугу, чтобы начать.
-                </Typography>
-              </CardContent>
-            </Card>
-          ) : (
+          {/* Skeleton при загрузке */}
+          {loading ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {services.map((service) => (
-                <ServiceItem
-                  key={service.id}
-                  service={service}
-                  onEdit={() => handleEditClick(service)}
-                  onDelete={() => handleDeleteService(service.id)}
-                />
+              {[1, 2, 3].map((index) => (
+                <Card key={index}>
+                  <CardContent>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: 2,
+                      }}
+                    >
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 1,
+                          }}
+                        >
+                          <Skeleton variant="text" width={200} height={32} />
+                          <Skeleton variant="rectangular" width={80} height={20} sx={{ borderRadius: 1 }} />
+                        </Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            gap: 3,
+                            flexWrap: "wrap",
+                            mb: 1,
+                          }}
+                        >
+                          <Skeleton variant="text" width={150} height={24} />
+                          <Skeleton variant="text" width={150} height={24} />
+                        </Box>
+                        <Skeleton variant="text" width="80%" height={20} />
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Skeleton variant="circular" width={40} height={40} />
+                        <Skeleton variant="circular" width={40} height={40} />
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
               ))}
             </Box>
+          ) : (
+            /* Список услуг */
+            services.length === 0 ? (
+              <Card>
+                <CardContent>
+                  <Typography variant="body1" color="text.secondary" align="center">
+                    У вас пока нет услуг. Добавьте первую услугу, чтобы начать.
+                  </Typography>
+                </CardContent>
+              </Card>
+            ) : (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {services.map((service) => (
+                  <ServiceItem
+                    key={service.id}
+                    service={service}
+                    onEdit={() => handleEditClick(service)}
+                    onDelete={() => handleDeleteService(service.id)}
+                  />
+                ))}
+              </Box>
+            )
           )}
         </Container>
 

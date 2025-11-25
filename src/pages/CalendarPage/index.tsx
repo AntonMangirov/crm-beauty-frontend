@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  CircularProgress,
   Alert,
   Card,
   CardContent,
@@ -14,6 +13,14 @@ import {
   useTheme,
   Divider,
   Stack,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -528,21 +535,6 @@ export const CalendarPage: React.FC = () => {
     },
   ];
 
-  if (loading && appointments.length === 0) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Box 
@@ -588,6 +580,7 @@ export const CalendarPage: React.FC = () => {
               label="Выберите дату"
               value={selectedDate}
               onChange={(newValue) => setSelectedDate(newValue)}
+              disabled={loading}
               slots={{
                 day: (props) => {
                   const { day, ...other } = props;
@@ -685,18 +678,92 @@ export const CalendarPage: React.FC = () => {
           </Alert>
         )}
 
-        {/* Таблица записей или карточки для мобильных */}
-        {appointments.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Typography variant="body1" color="text.secondary" align="center">
-                {selectedDate
-                  ? `На ${format(selectedDate, "dd.MM.yyyy", { locale: ru })} записей нет`
-                  : "Выберите дату для просмотра записей"}
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : isMobile ? (
+        {/* Skeleton при загрузке */}
+        {loading && appointments.length === 0 ? (
+          isMobile ? (
+            // Skeleton для мобильного вида (карточки)
+            <Stack spacing={2}>
+              {[1, 2, 3].map((index) => (
+                <Card key={index}>
+                  <CardContent>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Skeleton variant="text" width={200} height={28} sx={{ mb: 0.5 }} />
+                        <Skeleton variant="text" width={150} height={20} />
+                      </Box>
+                      <Skeleton variant="rectangular" width={100} height={24} sx={{ borderRadius: 1 }} />
+                    </Box>
+                    <Divider sx={{ my: 1.5 }} />
+                    <Stack spacing={1}>
+                      <Box>
+                        <Skeleton variant="text" width={60} height={16} />
+                        <Skeleton variant="text" width={150} height={20} />
+                      </Box>
+                      <Box>
+                        <Skeleton variant="text" width={100} height={16} />
+                        <Skeleton variant="text" width={200} height={20} />
+                      </Box>
+                      <Box>
+                        <Skeleton variant="text" width={50} height={16} />
+                        <Skeleton variant="text" width={100} height={20} />
+                      </Box>
+                    </Stack>
+                    <Box sx={{ mt: 2, display: "flex", gap: 1, flexDirection: "column" }}>
+                      <Skeleton variant="rectangular" width="100%" height={36} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width="100%" height={36} sx={{ borderRadius: 1 }} />
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            // Skeleton для десктопного вида (таблица)
+            <Box 
+              sx={{ 
+                height: 600, 
+                width: "100%",
+                overflowX: "auto",
+              }}
+            >
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      {columns.map((column, index) => (
+                        <TableCell key={index}>
+                          <Skeleton variant="text" width={column.width ? `${column.width}px` : 150} height={24} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+                      <TableRow key={row}>
+                        {columns.map((column, index) => (
+                          <TableCell key={index}>
+                            <Skeleton variant="text" width="80%" height={20} />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )
+        ) : (
+          /* Таблица записей или карточки для мобильных */
+          appointments.length === 0 ? (
+            <Card>
+              <CardContent>
+                <Typography variant="body1" color="text.secondary" align="center">
+                  {selectedDate
+                    ? `На ${format(selectedDate, "dd.MM.yyyy", { locale: ru })} записей нет`
+                    : "Выберите дату для просмотра записей"}
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : isMobile ? (
           // Мобильный вид - карточки
           <Stack spacing={2}>
             {appointments.map((appointment) => {
