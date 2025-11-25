@@ -19,7 +19,7 @@ import {
 import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api";
-import { meApi, MeResponse } from "../api/me";
+import { meApi, type MeResponse } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
 
@@ -41,7 +41,6 @@ export const Header: React.FC<HeaderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [master, setMaster] = useState<MeResponse | null>(null);
-  const [loadingMaster, setLoadingMaster] = useState(false);
 
   useEffect(() => {
     // Загружаем данные мастера при монтировании компонента
@@ -49,15 +48,12 @@ export const Header: React.FC<HeaderProps> = ({
       const token = localStorage.getItem("authToken");
       if (token) {
         try {
-          setLoadingMaster(true);
           const masterData = await meApi.getMe();
           setMaster(masterData);
         } catch (error) {
           // Если токен невалидный, очищаем его
           localStorage.removeItem("authToken");
           setMaster(null);
-        } finally {
-          setLoadingMaster(false);
         }
       } else {
         setMaster(null);

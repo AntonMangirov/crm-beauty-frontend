@@ -764,8 +764,8 @@ export const CalendarPage: React.FC = () => {
               </CardContent>
             </Card>
           ) : isMobile ? (
-          // Мобильный вид - карточки
-          <Stack spacing={2}>
+            // Мобильный вид - карточки
+            <Stack spacing={2}>
             {appointments.map((appointment) => {
               const { id, status, startAt, endAt, client, service, price } = appointment;
               const canConfirm = status === "PENDING";
@@ -940,10 +940,10 @@ export const CalendarPage: React.FC = () => {
                 </Card>
               );
             })}
-          </Stack>
-        ) : (
-          // Десктопный вид - таблица
-          <Box 
+            </Stack>
+          ) : (
+            // Десктопный вид - таблица
+            <Box 
             sx={{ 
               height: 600, 
               width: "100%",
@@ -972,7 +972,8 @@ export const CalendarPage: React.FC = () => {
                 },
               }}
             />
-          </Box>
+            </Box>
+          )
         )}
 
         {/* Диалог загрузки фото */}
