@@ -42,6 +42,8 @@ export interface BookingRequest {
   comment?: string;
   recaptchaToken?: string; // reCAPTCHA v3 токен (опционально в dev режиме)
   source?: 'MANUAL' | 'PHONE' | 'WEB' | 'TELEGRAM' | 'VK' | 'WHATSAPP'; // Источник записи
+  price?: number; // Кастомная цена (опционально)
+  durationOverride?: number; // Кастомная длительность в минутах (опционально)
 }
 
 export interface BookingResponse {
@@ -105,6 +107,16 @@ export const mastersApi = {
     // Добавляем source только если он указан
     if (bookingData.source) {
       requestBody.source = bookingData.source;
+    }
+    
+    // Добавляем кастомную цену, если указана
+    if (bookingData.price !== undefined && bookingData.price > 0) {
+      requestBody.price = bookingData.price;
+    }
+    
+    // Добавляем кастомную длительность, если указана
+    if (bookingData.durationOverride !== undefined && bookingData.durationOverride > 0) {
+      requestBody.durationOverride = bookingData.durationOverride;
     }
     
     // Добавляем recaptchaToken только если он есть

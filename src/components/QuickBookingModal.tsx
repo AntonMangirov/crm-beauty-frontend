@@ -61,6 +61,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [expandedSettings, setExpandedSettings] = useState(false);
   const [comment, setComment] = useState("");
   const [customPrice, setCustomPrice] = useState<number | null>(null);
+  const [durationOverride, setDurationOverride] = useState<number | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
   const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
   const [lastManualAppointments, setLastManualAppointments] = useState<Array<{
@@ -233,9 +234,21 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     setError(null);
     setComment("");
     setCustomPrice(null);
+    setDurationOverride(null);
     setExpandedSettings(false);
     setAutoFilled({});
   };
+
+  // Пересчитываем цену при изменении услуги
+  useEffect(() => {
+    if (selectedService) {
+      // При изменении услуги сбрасываем кастомную цену, чтобы показать цену новой услуги
+      // Пользователь может установить свою цену вручную
+      setCustomPrice(null);
+      setDurationOverride(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService]);
 
   // Поиск клиента по имени (с debounce)
   useEffect(() => {
@@ -428,6 +441,8 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         telegramUsername?: string;
         comment?: string;
         source?: 'MANUAL' | 'PHONE' | 'WEB' | 'TELEGRAM' | 'VK' | 'WHATSAPP';
+        price?: number;
+        durationOverride?: number;
       } = {
         name: name.trim(),
         serviceId: selectedService.id,
@@ -444,6 +459,16 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
       if (comment.trim()) {
         bookingData.comment = comment.trim();
+      }
+
+      // Добавляем кастомную цену, если указана
+      if (customPrice !== null && customPrice > 0) {
+        bookingData.price = customPrice;
+      }
+
+      // Добавляем кастомную длительность, если указана
+      if (durationOverride !== null && durationOverride > 0) {
+        bookingData.durationOverride = durationOverride;
       }
 
       // Создание записи через публичный API
@@ -871,8 +896,39 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                         ? `По умолчанию: ${selectedService.price.toLocaleString("ru-RU")} ₽`
                         : "Укажите цену"
                     }
+                    helperText={
+                      selectedService && customPrice === null
+                        ? `Текущая цена услуги: ${selectedService.price.toLocaleString("ru-RU")} ₽`
+                        : undefined
+                    }
                     InputProps={{
                       endAdornment: <Typography sx={{ mr: 1 }}>₽</Typography>,
+                    }}
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Длительность (опционально, минуты)"
+                    type="number"
+                    value={durationOverride || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setDurationOverride(value ? parseInt(value, 10) : null);
+                    }}
+                    placeholder={
+                      selectedService
+                        ? `По умолчанию: ${selectedService.durationMin} мин`
+                        : "Укажите длительность"
+                    }
+                    helperText={
+                      selectedService && durationOverride === null
+                        ? `Текущая длительность услуги: ${selectedService.durationMin} мин`
+                        : durationOverride
+                        ? `Будет использовано: ${durationOverride} мин вместо ${selectedService?.durationMin || 0} мин`
+                        : undefined
+                    }
+                    InputProps={{
+                      endAdornment: <Typography sx={{ mr: 1 }}>мин</Typography>,
                     }}
                   />
                 </Box>
