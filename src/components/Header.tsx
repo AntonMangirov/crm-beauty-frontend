@@ -6,14 +6,8 @@ import {
   Box,
   Button,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Menu,
   MenuItem,
-  Alert,
   Avatar,
 } from "@mui/material";
 import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
@@ -22,6 +16,7 @@ import { apiClient } from "../api";
 import { meApi, type MeResponse } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
+import { AuthDialog } from "./AuthDialog";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -35,10 +30,6 @@ export const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [master, setMaster] = useState<MeResponse | null>(null);
 
@@ -93,44 +84,13 @@ export const Header: React.FC<HeaderProps> = ({
     setAnchorEl(null);
   };
 
-  const handleLogin = async () => {
-    setError(null);
-    setLoading(true);
-
+  const handleAuthSuccess = async () => {
+    // Загружаем данные мастера после успешного входа
     try {
-      const response = await apiClient.post("/api/auth/login", {
-        email,
-        password,
-      });
-
-      const { token } = response.data;
-      localStorage.setItem("authToken", token);
-      setLoginDialogOpen(false);
-      setEmail("");
-      setPassword("");
-      showSnackbar("Успешный вход!", "success");
-
-      // Загружаем данные мастера после успешного входа
-      try {
-        const masterData = await meApi.getMe();
-        setMaster(masterData);
-      } catch (error) {
-        console.error("Ошибка загрузки данных мастера:", error);
-      }
-
-      // Отправляем событие для обновления других компонентов
-      window.dispatchEvent(new Event("authChange"));
-
-      // Перенаправляем на кабинет мастера
-      navigate("/master");
-    } catch (err: unknown) {
-      const errorMessage =
-        (err as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error || "Ошибка входа. Проверьте данные.";
-      setError(errorMessage);
-      showSnackbar(errorMessage, "error");
-    } finally {
-      setLoading(false);
+      const masterData = await meApi.getMe();
+      setMaster(masterData);
+    } catch (error) {
+      console.error("Ошибка загрузки данных мастера:", error);
     }
   };
 
@@ -374,54 +334,13 @@ export const Header: React.FC<HeaderProps> = ({
         </MenuItem>
       </Menu>
 
-      {/* Диалог входа */}
-      <Dialog
+      {/* Диалог входа и регистрации */}
+      <AuthDialog
         open={loginDialogOpen}
         onClose={() => setLoginDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Вход в кабинет мастера</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <TextField
-            fullWidth
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            sx={{ mb: 2, mt: 1 }}
-            autoComplete="email"
-            placeholder="anna@example.com"
-          />
-          <TextField
-            fullWidth
-            label="Пароль"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            placeholder="password123"
-            onKeyPress={(e) => {
-              if (e.key === "Enter" && !loading) {
-                handleLogin();
-              }
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLoginDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleLogin} variant="contained" disabled={loading}>
-            {loading ? "Вход..." : "Войти"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        defaultTab="login"
+        onSuccess={handleAuthSuccess}
+      />
     </AppBar>
   );
 };
