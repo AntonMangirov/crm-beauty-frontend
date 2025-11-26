@@ -35,7 +35,8 @@ export interface Service {
 
 export interface BookingRequest {
   name: string;
-  phone: string;
+  phone?: string; // Опционально, если указан telegramUsername
+  telegramUsername?: string; // Опционально, если указан phone
   serviceId: string;
   startAt: string; // ISO строка
   comment?: string;
@@ -82,10 +83,19 @@ export const mastersApi = {
   ): Promise<BookingResponse> => {
     const requestBody: Record<string, unknown> = {
       name: bookingData.name,
-      phone: bookingData.phone,
       serviceId: bookingData.serviceId,
       startAt: bookingData.startAt,
     };
+    
+    // Добавляем phone только если он указан
+    if (bookingData.phone) {
+      requestBody.phone = bookingData.phone;
+    }
+    
+    // Добавляем telegramUsername только если он указан
+    if (bookingData.telegramUsername) {
+      requestBody.telegramUsername = bookingData.telegramUsername;
+    }
     
     if (bookingData.comment) {
       requestBody.comment = bookingData.comment;

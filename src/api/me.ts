@@ -55,6 +55,7 @@ export interface Appointment {
     id: string;
     name: string;
     phone: string | null;
+    telegramUsername: string | null;
     email: string | null;
   };
   service: {
@@ -109,6 +110,7 @@ export interface ClientListItem {
   id: string;
   name: string;
   phone: string | null;
+  telegramUsername: string | null;
   lastVisit: string | null; // ISO date string
   visitsCount: number;
   photosCount: number; // Количество фото у клиента

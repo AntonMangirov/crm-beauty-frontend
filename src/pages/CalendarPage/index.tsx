@@ -69,6 +69,7 @@ export const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
   const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
+  const [datesWithCompletedPhotos, setDatesWithCompletedPhotos] = useState<Set<string>>(new Set());
   const [photoUploaderOpen, setPhotoUploaderOpen] = useState(false);
   const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
   // Выходные дни мастера (опционально выставляются мастером через настройки)
@@ -123,6 +124,7 @@ export const CalendarPage: React.FC = () => {
       const endDay = monthEnd.getDate();
       const utcMonthEnd = new Date(Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999));
 
+      // Сначала загружаем все записи за месяц для определения дат с записями
       const data = await meApi.getAppointments({
         from: utcMonthStart.toISOString(),
         to: utcMonthEnd.toISOString(),
@@ -135,8 +137,67 @@ export const CalendarPage: React.FC = () => {
         const dateKey = format(date, "yyyy-MM-dd");
         datesSet.add(dateKey);
       });
-
+      
       setDatesWithAppointments(datesSet);
+
+      // Теперь для каждой даты с завершенными записями загружаем данные за день,
+      // чтобы правильно получить фотографии (они привязываются только при загрузке за день)
+      const datesWithPhotosSet = new Set<string>();
+      const completedDates = new Set<string>();
+      
+      // Собираем даты с завершенными записями
+      data.forEach((apt) => {
+        if (apt.status === "COMPLETED") {
+          const date = new Date(apt.startAt);
+          const dateKey = format(date, "yyyy-MM-dd");
+          completedDates.add(dateKey);
+        }
+      });
+      
+      // Загружаем данные для каждой даты с завершенными записями
+      const photoCheckPromises = Array.from(completedDates).map(async (dateKey) => {
+        const [yearStr, monthStr, dayStr] = dateKey.split("-");
+        const checkDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
+        const localStartOfDay = startOfDay(checkDate);
+        const localEndOfDay = endOfDay(checkDate);
+        
+        const year = localStartOfDay.getFullYear();
+        const month = localStartOfDay.getMonth();
+        const day = localStartOfDay.getDate();
+        
+        const utcStartOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        const utcEndOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+        try {
+          const dayData = await meApi.getAppointments({
+            from: utcStartOfDay.toISOString(),
+            to: utcEndOfDay.toISOString(),
+          });
+          
+          // Проверяем, есть ли завершенные записи с фотографиями
+          const hasCompletedWithPhotos = dayData.some(
+            (apt) =>
+              apt.status === "COMPLETED" &&
+              apt.photos &&
+              Array.isArray(apt.photos) &&
+              apt.photos.length > 0
+          );
+          
+          return { dateKey, hasCompletedWithPhotos };
+        } catch (err) {
+          console.error(`Ошибка загрузки данных за ${dateKey}:`, err);
+          return { dateKey, hasCompletedWithPhotos: false };
+        }
+      });
+      
+      const photoCheckResults = await Promise.all(photoCheckPromises);
+      photoCheckResults.forEach(({ dateKey, hasCompletedWithPhotos }) => {
+        if (hasCompletedWithPhotos) {
+          datesWithPhotosSet.add(dateKey);
+        }
+      });
+      
+      setDatesWithCompletedPhotos(datesWithPhotosSet);
     } catch (err) {
       console.error("Ошибка загрузки дат с записями:", err);
     }
@@ -168,6 +229,30 @@ export const CalendarPage: React.FC = () => {
       });
 
       setAppointments(data);
+      
+      // Обновляем даты с фотографиями на основе загруженных данных для выбранного дня
+      const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+      const clientsWithPhotos = new Set<string>();
+      
+      data.forEach((apt) => {
+        if (apt.photos && Array.isArray(apt.photos) && apt.photos.length > 0) {
+          clientsWithPhotos.add(apt.clientId);
+        }
+      });
+      
+      const hasCompletedWithPhotos = data.some(
+        (apt) =>
+          apt.status === "COMPLETED" &&
+          clientsWithPhotos.has(apt.clientId)
+      );
+      
+      if (hasCompletedWithPhotos) {
+        setDatesWithCompletedPhotos((prev) => {
+          const next = new Set(prev);
+          next.add(selectedDateKey);
+          return next;
+        });
+      }
     } catch (err) {
       console.error("Ошибка загрузки записей:", err);
       setError("Не удалось загрузить записи");
@@ -266,6 +351,8 @@ export const CalendarPage: React.FC = () => {
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
+      // Обновляем даты с фотографиями после завершения записи
+      await loadDatesWithAppointments();
       showSnackbar("Запись завершена", "success");
     } catch (err: any) {
       console.error("Ошибка завершения записи:", err);
@@ -291,6 +378,8 @@ export const CalendarPage: React.FC = () => {
   const handlePhotosUpdated = async () => {
     if (selectedAppointmentForPhotos) {
       await loadAppointments();
+      // Перезагружаем даты с фотографиями после обновления
+      await loadDatesWithAppointments();
     }
   };
 
@@ -300,15 +389,17 @@ export const CalendarPage: React.FC = () => {
       headerName: "Клиент",
       width: 250,
       renderCell: (params: GridRenderCellParams<Appointment>) => {
-        const { name, phone } = params.row.client;
+        const { name, phone, telegramUsername } = params.row.client;
         return (
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {name}
             </Typography>
-            {phone && (
+            {(phone || telegramUsername) && (
               <Typography variant="caption" color="text.secondary">
-                {phone}
+                {phone && `📞 ${phone}`}
+                {phone && telegramUsername && " • "}
+                {telegramUsername && `✈️ @${telegramUsername}`}
               </Typography>
             )}
           </Box>
@@ -586,75 +677,99 @@ export const CalendarPage: React.FC = () => {
                   const { day, ...other } = props;
                   const dateKey = format(day, "yyyy-MM-dd");
                   const hasAppointments = datesWithAppointments.has(dateKey);
+                  const hasCompletedPhotos = datesWithCompletedPhotos.has(dateKey);
                   const isTodayDate = isToday(day);
                   const isPastDate = isPast(startOfDay(day)) && !isTodayDate;
                   const isDayOffDate = isDayOff(day);
                   
                   return (
-                    <PickersDay
-                      {...other}
-                      day={day}
-                      sx={{
-                        // Стили для выходных дней (будущих)
-                        ...(isDayOffDate && !isPastDate && {
-                          color: "error.main",
-                          fontWeight: 600,
-                        }),
-                        // Стили для прошедших выходных дней
-                        ...(isDayOffDate && isPastDate && {
-                          color: "error.light",
-                          opacity: 0.6,
-                        }),
-                        // Стили для прошедших дней без записей
-                        ...(isPastDate && !hasAppointments && !isDayOffDate && {
-                          color: "text.disabled",
-                          opacity: 0.5,
-                        }),
-                        // Стили для прошедших дней с записями (более серые)
-                        ...(isPastDate && hasAppointments && !isDayOffDate && {
-                          bgcolor: "action.disabledBackground",
-                          color: "text.disabled",
-                          opacity: 0.7,
-                          fontWeight: 500,
-                        }),
-                        // Стили для сегодняшней даты
-                        ...(isTodayDate && {
-                          border: "2px solid",
-                          borderColor: isDayOffDate ? "error.main" : "primary.main",
-                          fontWeight: 700,
-                          bgcolor: hasAppointments 
-                            ? (isDayOffDate ? "error.light" : "primary.light") 
-                            : "background.paper",
-                        }),
-                        // Стили для будущих дат с записями (не выходные)
-                        ...(hasAppointments && !isTodayDate && !isPastDate && !isDayOffDate && {
-                          bgcolor: "primary.light",
-                          color: "primary.contrastText",
-                          fontWeight: 600,
-                          "&:hover": {
-                            bgcolor: "primary.main",
-                          },
-                          "&.Mui-selected": {
-                            bgcolor: "primary.main",
+                    <Box sx={{ position: "relative", display: "inline-block" }}>
+                      <PickersDay
+                        {...other}
+                        day={day}
+                        sx={{
+                          position: "relative",
+                          // Стили для выходных дней (будущих)
+                          ...(isDayOffDate && !isPastDate && {
+                            color: "error.main",
+                            fontWeight: 600,
+                          }),
+                          // Стили для прошедших выходных дней
+                          ...(isDayOffDate && isPastDate && {
+                            color: "error.light",
+                            opacity: 0.6,
+                          }),
+                          // Стили для прошедших дней без записей
+                          ...(isPastDate && !hasAppointments && !isDayOffDate && {
+                            color: "text.disabled",
+                            opacity: 0.5,
+                          }),
+                          // Стили для прошедших дней с записями (более серые)
+                          ...(isPastDate && hasAppointments && !isDayOffDate && {
+                            bgcolor: "action.disabledBackground",
+                            color: "text.disabled",
+                            opacity: 0.7,
+                            fontWeight: 500,
+                          }),
+                          // Стили для сегодняшней даты
+                          ...(isTodayDate && {
+                            border: "2px solid",
+                            borderColor: isDayOffDate ? "error.main" : "primary.main",
+                            fontWeight: 700,
+                            bgcolor: hasAppointments 
+                              ? (isDayOffDate ? "error.light" : "primary.light") 
+                              : "background.paper",
+                          }),
+                          // Стили для будущих дат с записями (не выходные)
+                          ...(hasAppointments && !isTodayDate && !isPastDate && !isDayOffDate && {
+                            bgcolor: "primary.light",
                             color: "primary.contrastText",
+                            fontWeight: 600,
                             "&:hover": {
-                              bgcolor: "primary.dark",
+                              bgcolor: "primary.main",
                             },
-                          },
-                        }),
-                        // Стили для выбранной даты с записями и сегодня
-                        ...(hasAppointments && isTodayDate && !isDayOffDate && {
-                          "&.Mui-selected": {
-                            bgcolor: "primary.main",
-                            color: "primary.contrastText",
-                            borderColor: "primary.dark",
-                            "&:hover": {
-                              bgcolor: "primary.dark",
+                            "&.Mui-selected": {
+                              bgcolor: "primary.main",
+                              color: "primary.contrastText",
+                              "&:hover": {
+                                bgcolor: "primary.dark",
+                              },
                             },
-                          },
-                        }),
-                      }}
-                    />
+                          }),
+                          // Стили для выбранной даты с записями и сегодня
+                          ...(hasAppointments && isTodayDate && !isDayOffDate && {
+                            "&.Mui-selected": {
+                              bgcolor: "primary.main",
+                              color: "primary.contrastText",
+                              borderColor: "primary.dark",
+                              "&:hover": {
+                                bgcolor: "primary.dark",
+                              },
+                            },
+                          }),
+                        }}
+                      />
+                      {/* Индикатор завершенных записей с фотографиями */}
+                      {hasCompletedPhotos && (
+                        <Box
+                          component="span"
+                          sx={{
+                            position: "absolute",
+                            bottom: 2,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: "#FFD700",
+                            zIndex: 10,
+                            border: "1px solid #FFA500",
+                            pointerEvents: "none",
+                          }}
+                          title={`Есть завершенные записи с фотографиями`}
+                        />
+                      )}
+                    </Box>
                   );
                 },
               }}
@@ -783,9 +898,11 @@ export const CalendarPage: React.FC = () => {
                         <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
                           {client.name}
                         </Typography>
-                        {client.phone && (
+                        {(client.phone || client.telegramUsername) && (
                           <Typography variant="body2" color="text.secondary">
-                            {client.phone}
+                            {client.phone && `📞 ${client.phone}`}
+                            {client.phone && client.telegramUsername && " • "}
+                            {client.telegramUsername && `✈️ @${client.telegramUsername}`}
                           </Typography>
                         )}
                       </Box>

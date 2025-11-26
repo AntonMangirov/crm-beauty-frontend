@@ -41,8 +41,12 @@ export const Header: React.FC<HeaderProps> = ({
         try {
           const masterData = await meApi.getMe();
           setMaster(masterData);
-        } catch (error) {
-          // Если токен невалидный, очищаем его
+        } catch (error: any) {
+          // Если токен невалидный или пользователь не авторизован, очищаем его
+          // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
+          if (error?.response?.status !== 401) {
+            console.error("Ошибка загрузки данных мастера:", error);
+          }
           localStorage.removeItem("authToken");
           setMaster(null);
         }

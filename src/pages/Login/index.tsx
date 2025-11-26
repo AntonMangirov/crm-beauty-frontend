@@ -21,8 +21,12 @@ export const Login: React.FC = () => {
           await meApi.getMe();
           // Если токен валидный, редиректим на кабинет мастера
           navigate("/master", { replace: true });
-        } catch (error) {
+        } catch (error: any) {
           // Если токен невалидный, очищаем его и показываем форму логина
+          // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
+          if (error?.response?.status !== 401) {
+            console.error("Ошибка проверки авторизации:", error);
+          }
           localStorage.removeItem("authToken");
         }
       }

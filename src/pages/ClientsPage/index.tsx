@@ -83,15 +83,32 @@ export const ClientsPage: React.FC = () => {
     },
     {
       field: "phone",
-      headerName: "Телефон",
-      width: 180,
+      headerName: "Контакты",
+      width: 220,
       flex: isMobile ? 0 : 1,
-      minWidth: 150,
+      minWidth: 180,
       renderCell: (params: GridRenderCellParams<ClientListItem>) => {
+        const { phone, telegramUsername } = params.row;
+        if (!phone && !telegramUsername) {
+          return (
+            <Typography variant="body2" color="text.secondary">
+              —
+            </Typography>
+          );
+        }
         return (
-          <Typography variant="body2">
-            {params.row.phone || "—"}
-          </Typography>
+          <Box>
+            {phone && (
+              <Typography variant="body2">
+                📞 {phone}
+              </Typography>
+            )}
+            {telegramUsername && (
+              <Typography variant="body2" color="text.secondary">
+                ✈️ @{telegramUsername}
+              </Typography>
+            )}
+          </Box>
         );
       },
     },

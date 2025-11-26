@@ -14,6 +14,7 @@ import {
   Person as PersonIcon,
   Phone as PhoneIcon,
   Comment as CommentIcon,
+  Telegram as TelegramIcon,
 } from "@mui/icons-material";
 import type { Service } from "../../api/masters";
 
@@ -27,7 +28,8 @@ interface StepClientFormProps {
 
 export interface ClientFormData {
   name: string;
-  phone: string;
+  phone?: string;
+  telegramUsername?: string;
   comment?: string;
 }
 
@@ -41,6 +43,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
     phone: "",
+    telegramUsername: "",
     comment: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -117,12 +120,41 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
       newErrors.name = "Имя должно содержать минимум 2 символа";
     }
 
-    const phoneDigits = getPhoneDigits(formData.phone);
-    if (!phoneDigits || phoneDigits.length < 11) {
-      newErrors.phone = "Телефон обязателен";
-    } else if (phoneDigits.length !== 11 || !phoneDigits.startsWith("7")) {
-      newErrors.phone =
-        "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67";
+    // Проверяем телефон, если он заполнен
+    const phoneDigits = getPhoneDigits(formData.phone || "");
+    if (phoneDigits && phoneDigits.length > 0) {
+      if (phoneDigits.length !== 11 || !phoneDigits.startsWith("7")) {
+        newErrors.phone =
+          "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67";
+      }
+    }
+
+    // Проверяем telegramUsername, если он заполнен
+    let hasTelegram = false;
+    if (formData.telegramUsername && formData.telegramUsername.trim()) {
+      const telegramUsername = formData.telegramUsername.trim().replace(/^@/, "");
+      if (telegramUsername.length < 5) {
+        newErrors.telegramUsername = "Ник Telegram должен содержать минимум 5 символов";
+      } else if (telegramUsername.length > 32) {
+        newErrors.telegramUsername = "Ник Telegram не должен превышать 32 символа";
+      } else if (!/^[a-zA-Z0-9_]+$/.test(telegramUsername)) {
+        newErrors.telegramUsername = "Ник Telegram может содержать только буквы, цифры и подчеркивания";
+      } else {
+        hasTelegram = true;
+      }
+    }
+
+    // Проверяем, что хотя бы одно поле (телефон или telegramUsername) заполнено
+    // Телефон считается заполненным только если он содержит 11 цифр (7 + 10 цифр)
+    const hasPhone = phoneDigits && phoneDigits.length === 11 && phoneDigits.startsWith("7");
+    if (!hasPhone && !hasTelegram) {
+      // Показываем ошибку только если оба поля пустые или невалидные
+      if (!phoneDigits || phoneDigits.length === 0 || phoneDigits === "7") {
+        newErrors.phone = "Необходимо указать телефон или ник Telegram";
+      }
+      if (!formData.telegramUsername || !formData.telegramUsername.trim()) {
+        newErrors.telegramUsername = "Необходимо указать телефон или ник Telegram";
+      }
     }
 
     if (formData.comment && formData.comment.length > 500) {
@@ -175,31 +207,46 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Нормализуем телефон перед отправкой (убираем форматирование, оставляем только +7XXXXXXXXXX)
-    const phoneDigits = getPhoneDigits(formData.phone);
-    let normalizedPhone: string;
-
-    if (phoneDigits.startsWith("7")) {
-      normalizedPhone = "+" + phoneDigits;
-    } else if (phoneDigits.length === 10) {
-      // Если 10 цифр без кода страны, добавляем +7
-      normalizedPhone = "+7" + phoneDigits;
-    } else {
-      // Если что-то не так, пробуем исправить
-      normalizedPhone = "+7" + phoneDigits.replace(/^7/, "");
-    }
-
     if (!validateForm()) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Отправляем нормализованный телефон без форматирования
-      await onFormSubmit({
-        ...formData,
-        phone: normalizedPhone,
-      });
+      // Нормализуем телефон перед отправкой (убираем форматирование, оставляем только +7XXXXXXXXXX)
+      let normalizedPhone: string | undefined = undefined;
+      const phoneDigits = getPhoneDigits(formData.phone || "");
+      if (phoneDigits && phoneDigits.length === 11 && phoneDigits.startsWith("7")) {
+        normalizedPhone = "+" + phoneDigits;
+      }
+
+      // Нормализуем telegramUsername (убираем @ если есть, приводим к нижнему регистру)
+      // Отправляем только если он содержит минимум 5 символов
+      let normalizedTelegramUsername: string | undefined = undefined;
+      if (formData.telegramUsername && formData.telegramUsername.trim()) {
+        const cleaned = formData.telegramUsername.trim().replace(/^@/, "");
+        console.log('[DEBUG StepClientForm] telegramUsername cleaned:', cleaned, 'length:', cleaned.length);
+        if (cleaned.length >= 5) {
+          normalizedTelegramUsername = cleaned.toLowerCase();
+          console.log('[DEBUG StepClientForm] normalizedTelegramUsername:', normalizedTelegramUsername);
+        } else {
+          console.log('[DEBUG StepClientForm] telegramUsername too short:', cleaned.length);
+        }
+      } else {
+        console.log('[DEBUG StepClientForm] telegramUsername is empty or undefined');
+      }
+
+      const submitData = {
+        name: formData.name,
+        ...(normalizedPhone && { phone: normalizedPhone }),
+        ...(normalizedTelegramUsername && { telegramUsername: normalizedTelegramUsername }),
+        ...(formData.comment && { comment: formData.comment }),
+      };
+      
+      console.log('[DEBUG StepClientForm] Submitting data:', submitData);
+
+      // Отправляем данные
+      await onFormSubmit(submitData);
     } catch (error) {
       // Ошибка обрабатывается в родительском компоненте
     } finally {
@@ -346,8 +393,8 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
             <TextField
               fullWidth
               size="small"
-              label="Телефон *"
-              value={formData.phone}
+              label="Телефон"
+              value={formData.phone || ""}
               onChange={(e) => {
                 let value = e.target.value;
 
@@ -381,10 +428,9 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
                 handleInputChange("phone", value);
               }}
               onFocus={(e) => {
-                const value = e.target.value.trim();
-                if (!value || value === "") {
-                  handleInputChange("phone", "+7");
-                }
+                // Не заполняем автоматически при фокусе, чтобы не мешать пользователям,
+                // которые хотят использовать только Telegram username
+                // Поле будет заполнено при первом вводе цифры
               }}
               onPaste={(e) => {
                 // Обрабатываем вставку текста
@@ -442,7 +488,7 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
                 }
               }}
               error={!!errors.phone}
-              helperText={errors.phone || "Формат: +7 (999) 123-45-67"}
+              helperText={errors.phone || "Формат: +7 (999) 123-45-67 (необязательно)"}
               InputProps={{
                 startAdornment: (
                   <PhoneIcon
@@ -453,6 +499,40 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
               placeholder="+7 (999) 123-45-67"
               inputProps={{
                 maxLength: 18, // +7 (999) 123-45-67 = 18 символов
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Ник Telegram"
+              value={formData.telegramUsername || ""}
+              onChange={(e) => {
+                let value = e.target.value;
+                // Убираем @ в начале, если пользователь его вводит
+                value = value.replace(/^@+/, "");
+                // Разрешаем только буквы, цифры и подчеркивания
+                value = value.replace(/[^a-zA-Z0-9_]/g, "");
+                // Ограничиваем длину
+                if (value.length > 32) {
+                  value = value.slice(0, 32);
+                }
+                handleInputChange("telegramUsername", value);
+              }}
+              error={!!errors.telegramUsername}
+              helperText={errors.telegramUsername || "Необязательно. Альтернатива телефону"}
+              InputProps={{
+                startAdornment: (
+                  <TelegramIcon
+                    sx={{ mr: 1, color: "action.active", fontSize: 20 }}
+                  />
+                ),
+              }}
+              placeholder="@username"
+              inputProps={{
+                maxLength: 32,
               }}
             />
           </Grid>

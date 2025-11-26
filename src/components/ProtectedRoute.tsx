@@ -30,8 +30,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         // Проверяем валидность токена через API запрос
         await meApi.getMe();
         setIsAuthenticated(true);
-      } catch (error) {
+      } catch (error: any) {
         // Если токен невалидный, очищаем его и редиректим на логин
+        // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
+        if (error?.response?.status !== 401) {
+          console.error("Ошибка проверки авторизации:", error);
+        }
         localStorage.removeItem("authToken");
         setIsAuthenticated(false);
       } finally {

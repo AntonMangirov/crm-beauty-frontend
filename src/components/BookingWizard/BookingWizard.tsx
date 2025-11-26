@@ -135,15 +135,21 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       // Получаем токен reCAPTCHA для защиты от ботов
       const recaptchaToken = await getRecaptchaToken('booking');
 
+      // formData уже содержит нормализованные данные из StepClientForm
       const bookingData = {
         name: formData.name,
-        phone: formData.phone,
+        ...(formData.phone && { phone: formData.phone }),
+        ...(formData.telegramUsername && { telegramUsername: formData.telegramUsername }),
         serviceId: selectedServices[0],
         startAt: startAtDate.toISOString(),
-        comment: formData.comment || undefined,
+        ...(formData.comment && { comment: formData.comment }),
         // Отправляем токен только если он получен (в dev режиме может быть null)
         ...(recaptchaToken && { recaptchaToken }),
       };
+
+      // Временное логирование для отладки
+      console.log('[DEBUG] Booking data before send:', bookingData);
+      console.log('[DEBUG] formData:', formData);
 
       const response = await mastersApi.bookAppointment(
         masterSlug,
