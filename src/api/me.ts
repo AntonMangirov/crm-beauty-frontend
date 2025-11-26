@@ -289,9 +289,16 @@ export const meApi = {
   /**
    * GET /api/me/clients
    * Получить список клиентов мастера
+   * @param search - поиск по имени или телефону (опционально)
    */
-  getClients: async (): Promise<ClientListItem[]> => {
-    const response = await apiClient.get("/api/me/clients");
+  getClients: async (search?: { name?: string; phone?: string }): Promise<ClientListItem[]> => {
+    const params = new URLSearchParams();
+    if (search?.name) params.append("name", search.name);
+    if (search?.phone) params.append("phone", search.phone);
+    
+    const queryString = params.toString();
+    const url = `/api/me/clients${queryString ? `?${queryString}` : ""}`;
+    const response = await apiClient.get(url);
     return response.data;
   },
 

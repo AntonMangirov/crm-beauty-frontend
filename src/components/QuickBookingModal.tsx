@@ -27,7 +27,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { ru } from "date-fns/locale";
 import { format, isAfter } from "date-fns";
-import { meApi, type Service } from "../api/me";
+import { meApi, type Service, type ClientListItem } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
 
@@ -54,19 +54,23 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]); // Занятые слоты
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSettings, setExpandedSettings] = useState(false);
   const [comment, setComment] = useState("");
   const [customPrice, setCustomPrice] = useState<number | null>(null);
+  const [searchingClient, setSearchingClient] = useState(false);
+  const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
   const { showSnackbar } = useSnackbar();
 
   // Загружаем услуги при открытии модального окна
+  // Использует: GET /api/me/services
   useEffect(() => {
     if (open) {
       loadServices();
-      // Устанавливаем ближайшую доступную дату
+      // Устанавливаем ближайшую доступную дату (завтра)
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
@@ -97,11 +101,18 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableSlots]);
 
+  // Загружает список услуг мастера
+  // Эндпоинт: GET /api/me/services
   const loadServices = async () => {
     try {
       setLoadingServices(true);
       const data = await meApi.getServices();
-      setServices(data.filter((s) => s.isActive));
+      const activeServices = data.filter((s) => s.isActive);
+      setServices(activeServices);
+      // Автоматически выбираем первую услугу, если есть
+      if (activeServices.length > 0 && !selectedService) {
+        setSelectedService(activeServices[0]);
+      }
     } catch (err) {
       console.error("Ошибка загрузки услуг:", err);
       showSnackbar("Не удалось загрузить услуги", "error");
@@ -110,26 +121,56 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     }
   };
 
+  // Загружает ближайшие свободные слоты для выбранной даты и услуги
+  // Эндпоинт: GET /api/public/:slug/timeslots?date=YYYY-MM-DD&serviceId=xxx
+  // Возвращает массив ISO строк, отсортированных по времени (первый - ближайший)
+  // Также загружает занятые слоты для отображения как disabled
   const loadAvailableSlots = async () => {
     if (!selectedDate || !selectedService || !masterSlug) return;
 
     try {
       setLoadingSlots(true);
       const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
-      const day = String(selectedDate.getDate()).padStart(2, "0");
-      const dateStr = `${year}-${month}-${day}`;
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
+      // Загружаем свободные слоты
       const response = await mastersApi.getTimeslots(
         masterSlug,
         dateStr,
         selectedService.id
       );
 
+      // Слоты уже отсортированы по времени (первый - ближайший)
       setAvailableSlots(response.available);
+
+      // Загружаем занятые слоты для отображения как disabled
+      const utcStartOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const utcEndOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+      try {
+        const appointments = await meApi.getAppointments({
+          from: utcStartOfDay.toISOString(),
+          to: utcEndOfDay.toISOString(),
+        });
+
+        // Извлекаем занятые временные слоты (исключаем отмененные)
+        const booked: string[] = [];
+        appointments.forEach((apt) => {
+          if (apt.status !== "CANCELED" && apt.status !== "NO_SHOW") {
+            booked.push(apt.startAt);
+          }
+        });
+        setBookedSlots(booked);
+      } catch (err) {
+        console.error("Ошибка загрузки занятых слотов:", err);
+        setBookedSlots([]);
+      }
     } catch (err) {
       console.error("Ошибка загрузки свободных слотов:", err);
       setAvailableSlots([]);
+      setBookedSlots([]);
     } finally {
       setLoadingSlots(false);
     }
@@ -144,11 +185,86 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     setSelectedDate(null);
     setSelectedTime(null);
     setAvailableSlots([]);
+    setBookedSlots([]);
     setError(null);
     setComment("");
     setCustomPrice(null);
     setExpandedSettings(false);
+    setAutoFilled({});
   };
+
+  // Поиск клиента по имени (с debounce)
+  useEffect(() => {
+    if (!name.trim() || name.trim().length < 2 || autoFilled.name) {
+      return;
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setSearchingClient(true);
+        const clients = await meApi.getClients({ name: name.trim() });
+        if (clients.length > 0) {
+          const client = clients[0]; // Берем первого найденного
+          // Подставляем контакт, если он не заполнен
+          if (!contact.trim()) {
+            if (client.phone) {
+              setContactType("phone");
+              const formatted = formatPhoneDisplay(client.phone);
+              setContact(formatted);
+              setAutoFilled({ ...autoFilled, contact: true });
+            } else if (client.telegramUsername) {
+              setContactType("telegram");
+              setContact(client.telegramUsername);
+              setAutoFilled({ ...autoFilled, contact: true });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка поиска клиента:", err);
+      } finally {
+        setSearchingClient(false);
+      }
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(searchTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
+
+  // Поиск клиента по контакту (обратная логика)
+  useEffect(() => {
+    if (!contact.trim() || contact.trim().length < 3 || autoFilled.contact) {
+      return;
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setSearchingClient(true);
+        const searchQuery = contactType === "phone" 
+          ? contact.replace(/[^\d+]/g, "")
+          : contact.trim().replace(/^@/, "");
+        
+        const clients = await meApi.getClients({ 
+          phone: searchQuery 
+        });
+        
+        if (clients.length > 0) {
+          const client = clients[0]; // Берем первого найденного
+          // Подставляем имя, если оно не заполнено
+          if (!name.trim()) {
+            setName(client.name);
+            setAutoFilled({ ...autoFilled, name: true });
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка поиска клиента:", err);
+      } finally {
+        setSearchingClient(false);
+      }
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(searchTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact, contactType]);
 
   const formatPhoneDisplay = (phone: string): string => {
     let cleaned = phone.replace(/[^\d+]/g, "");
@@ -284,6 +400,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         bookingData.comment = comment.trim();
       }
 
+      // Создание записи через публичный API
+      // Эндпоинт: POST /api/public/:slug/book
+      // В dev режиме reCAPTCHA не требуется, в production требуется
       await mastersApi.bookAppointment(masterSlug, bookingData);
 
       showSnackbar("Запись успешно создана!", "success");
@@ -361,10 +480,35 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 fullWidth
                 label="Имя клиента"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  // Сбрасываем флаг автоподстановки при ручном изменении
+                  if (autoFilled.name) {
+                    setAutoFilled({ ...autoFilled, name: false });
+                  }
+                }}
                 required
                 placeholder="Введите имя"
                 autoFocus
+                InputProps={{
+                  endAdornment: searchingClient ? (
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                  ) : autoFilled.name ? (
+                    <Chip
+                      label="Найдено"
+                      size="small"
+                      color="success"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
+                    />
+                  ) : null,
+                }}
+                helperText={
+                  autoFilled.name
+                    ? "Имя найдено по контакту"
+                    : name.trim().length >= 2
+                    ? "Идет поиск клиента..."
+                    : undefined
+                }
               />
             </Grid>
 
@@ -392,11 +536,17 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 fullWidth
                 label={contactType === "phone" ? "Телефон" : "Telegram (@ник)"}
                 value={contact}
-                onChange={(e) =>
-                  contactType === "phone"
-                    ? handlePhoneChange(e.target.value)
-                    : handleTelegramChange(e.target.value)
-                }
+                onChange={(e) => {
+                  if (contactType === "phone") {
+                    handlePhoneChange(e.target.value);
+                  } else {
+                    handleTelegramChange(e.target.value);
+                  }
+                  // Сбрасываем флаг автоподстановки при ручном изменении
+                  if (autoFilled.contact) {
+                    setAutoFilled({ ...autoFilled, contact: false });
+                  }
+                }}
                 required
                 placeholder={
                   contactType === "phone"
@@ -410,7 +560,24 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                         @
                       </Typography>
                     ) : null,
+                  endAdornment: searchingClient ? (
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                  ) : autoFilled.contact ? (
+                    <Chip
+                      label="Найдено"
+                      size="small"
+                      color="success"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
+                    />
+                  ) : null,
                 }}
+                helperText={
+                  autoFilled.contact
+                    ? "Контакт найден по имени"
+                    : contact.trim().length >= 3
+                    ? "Идет поиск клиента..."
+                    : undefined
+                }
               />
             </Grid>
 
@@ -496,33 +663,65 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                     <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
                       <CircularProgress size={20} />
                     </Box>
-                  ) : availableSlots.length === 0 ? (
-                    <Typography variant="caption" color="text.secondary">
-                      Нет свободных слотов на выбранную дату
-                    </Typography>
                   ) : (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {availableSlots.slice(0, 8).map((slotISO) => {
-                        const slotDate = new Date(slotISO);
-                        // Форматируем время в локальном часовом поясе для отображения
-                        const timeStr = format(slotDate, "HH:mm");
-                        // Сравниваем выбранное время с текущим слотом
-                        const isSelected =
-                          selectedTime &&
-                          Math.abs(selectedTime.getTime() - slotDate.getTime()) < 60000; // Разница менее минуты
-                        return (
-                          <Button
-                            key={slotISO}
-                            variant={isSelected ? "contained" : "outlined"}
-                            size="small"
-                            onClick={() => handleQuickSlotClick(slotISO)}
-                            startIcon={<TimeIcon />}
-                            sx={{ textTransform: "none" }}
-                          >
-                            {timeStr}
-                          </Button>
-                        );
-                      })}
+                      {/* Генерируем все возможные слоты для дня (9:00-18:00) */}
+                      {(() => {
+                        const allSlots: Array<{ time: string; iso: string; available: boolean }> = [];
+                        const year = selectedDate.getFullYear();
+                        const month = selectedDate.getMonth();
+                        const day = selectedDate.getDate();
+
+                        // Генерируем все слоты с 9:00 до 18:00
+                        for (let hour = 9; hour < 18; hour++) {
+                          const slotDate = new Date(Date.UTC(year, month, day, hour, 0, 0, 0));
+                          const timeStr = format(slotDate, "HH:mm");
+                          const slotISO = slotDate.toISOString();
+                          const isAvailable = availableSlots.includes(slotISO);
+                          const isBooked = bookedSlots.some((booked) => {
+                            const bookedDate = new Date(booked);
+                            return (
+                              bookedDate.getUTCHours() === hour &&
+                              bookedDate.getUTCMinutes() === 0
+                            );
+                          });
+
+                          allSlots.push({
+                            time: timeStr,
+                            iso: slotISO,
+                            available: isAvailable && !isBooked,
+                          });
+                        }
+
+                        return allSlots.slice(0, 10).map((slot) => {
+                          const slotDate = new Date(slot.iso);
+                          const isSelected =
+                            selectedTime &&
+                            Math.abs(selectedTime.getTime() - slotDate.getTime()) < 60000;
+
+                          return (
+                            <Button
+                              key={slot.iso}
+                              variant={isSelected ? "contained" : "outlined"}
+                              size="small"
+                              onClick={() => slot.available && handleQuickSlotClick(slot.iso)}
+                              disabled={!slot.available}
+                              startIcon={<TimeIcon />}
+                              sx={{
+                                textTransform: "none",
+                                opacity: slot.available ? 1 : 0.5,
+                              }}
+                              title={
+                                slot.available
+                                  ? `Выбрать ${slot.time}`
+                                  : `Время ${slot.time} занято`
+                              }
+                            >
+                              {slot.time}
+                            </Button>
+                          );
+                        });
+                      })()}
                     </Box>
                   )}
                 </Box>
