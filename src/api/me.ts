@@ -144,6 +144,17 @@ export interface AnalyticsResponse {
   newClientsPercentage: number;
 }
 
+export interface PortfolioPhoto {
+  id: string;
+  url: string;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface PortfolioResponse {
+  photos: PortfolioPhoto[];
+}
+
 export const meApi = {
   /**
    * GET /api/me
@@ -335,5 +346,43 @@ export const meApi = {
     await apiClient.delete(
       `/api/me/appointments/${appointmentId}/photos/${photoId}`
     );
+  },
+
+  /**
+   * GET /api/me/portfolio
+   * Получить портфолио мастера
+   */
+  getPortfolio: async (): Promise<PortfolioResponse> => {
+    const response = await apiClient.get("/api/me/portfolio");
+    return response.data;
+  },
+
+  /**
+   * POST /api/me/portfolio/photos
+   * Загрузить фото в портфолио
+   */
+  uploadPortfolioPhoto: async (
+    file: File,
+    description?: string
+  ): Promise<{ photo: PortfolioPhoto }> => {
+    const formData = new FormData();
+    formData.append("photo", file);
+    if (description) {
+      formData.append("description", description);
+    }
+    const response = await apiClient.post("/api/me/portfolio/photos", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  /**
+   * DELETE /api/me/portfolio/photos/:id
+   * Удалить фото из портфолио
+   */
+  deletePortfolioPhoto: async (photoId: string): Promise<void> => {
+    await apiClient.delete(`/api/me/portfolio/photos/${photoId}`);
   },
 };

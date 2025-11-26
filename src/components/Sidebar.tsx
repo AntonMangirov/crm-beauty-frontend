@@ -16,6 +16,7 @@ import {
   Build as BuildIcon,
   CalendarToday as CalendarIcon,
   People as PeopleIcon,
+  PhotoLibrary as PhotoLibraryIcon,
   Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
@@ -38,6 +39,7 @@ const menuItems: MenuItem[] = [
   { label: "Мои услуги", icon: <BuildIcon />, path: "/master/services" },
   { label: "Календарь", icon: <CalendarIcon />, path: "/master/calendar" },
   { label: "Клиенты", icon: <PeopleIcon />, path: "/master/clients" },
+  { label: "Портфолио", icon: <PhotoLibraryIcon />, path: "/master/portfolio" },
   { label: "Аналитика", icon: <AnalyticsIcon />, path: "/master/analytics" },
   { label: "Настройки", icon: <SettingsIcon />, path: "/master/settings" },
 ];
