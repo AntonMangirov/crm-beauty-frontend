@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -11,6 +11,8 @@ import {
   IconButton,
   Link,
   Chip,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import {
   LocationOn as LocationIcon,
@@ -25,11 +27,58 @@ import { ReviewFormDialog } from "./ReviewFormDialog";
 import { PortfolioGallery } from "./PortfolioGallery";
 import type { Master } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
+import { reviewsApi, type Review } from "../api/reviews";
 
 interface MasterProfileProps {
   master: Master;
   masterSlug: string;
 }
+
+// Функция для форматирования относительного времени
+const formatRelativeTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  if (diffSeconds < 60) {
+    return "только что";
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} ${getPlural(diffMinutes, "минуту", "минуты", "минут")} назад`;
+  } else if (diffHours < 24) {
+    return `${diffHours} ${getPlural(diffHours, "час", "часа", "часов")} назад`;
+  } else if (diffDays < 7) {
+    return `${diffDays} ${getPlural(diffDays, "день", "дня", "дней")} назад`;
+  } else if (diffWeeks < 4) {
+    return `${diffWeeks} ${getPlural(diffWeeks, "неделю", "недели", "недель")} назад`;
+  } else if (diffMonths < 12) {
+    return `${diffMonths} ${getPlural(diffMonths, "месяц", "месяца", "месяцев")} назад`;
+  } else {
+    return `${diffYears} ${getPlural(diffYears, "год", "года", "лет")} назад`;
+  }
+};
+
+const getPlural = (count: number, one: string, few: string, many: string): string => {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  
+  if (mod100 >= 11 && mod100 <= 19) {
+    return many;
+  }
+  if (mod10 === 1) {
+    return one;
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return few;
+  }
+  return many;
+};
 
 export const MasterProfile: React.FC<MasterProfileProps> = ({
   master,
@@ -37,14 +86,35 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
 }) => {
   const navigate = useNavigate();
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadReviews();
+  }, [masterSlug]);
+
+  const loadReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const reviewsData = await reviewsApi.getByMasterSlug(masterSlug);
+      setReviews(reviewsData);
+    } catch (err) {
+      console.error("Ошибка загрузки отзывов:", err);
+      setReviewsError("Не удалось загрузить отзывы");
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const handleBookClick = () => {
     navigate(`/${masterSlug}/book`);
   };
 
   const handleReviewSuccess = () => {
-    // Здесь можно добавить обновление списка отзывов, если нужно
-    // Например, перезагрузить данные мастера
+    // Перезагружаем список отзывов после успешного добавления
+    loadReviews();
   };
 
   const normalizedPhotoUrl = normalizeImageUrl(master.photoUrl);
@@ -459,7 +529,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
               fontSize: { xs: "1.25rem", sm: "1.5rem" },
             }}
           >
-            Отзывы
+            Отзывы {reviews.length > 0 && `(${reviews.length})`}
           </Typography>
           <Button
             variant="outlined"
@@ -473,64 +543,90 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           </Button>
         </Box>
 
-        {/* Демо-отзыв */}
-        <Card sx={{ p: { xs: 1.5, sm: 2 }, mb: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
-            <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                mr: 1.5,
-                bgcolor: "primary.main",
-                fontSize: "0.875rem",
-              }}
-            >
-              МК
-            </Avatar>
-            <Box sx={{ flexGrow: 1 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  mb: 0.5,
-                  flexWrap: "wrap",
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  Мария К.
-                </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <StarIcon
-                      key={star}
-                      sx={{
-                        fontSize: 16,
-                        color: star <= 5 ? "#FFD700" : "grey.300",
-                      }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
-              >
-                Отличный мастер! Очень довольна результатом. Профессиональный
-                подход, внимательное отношение к деталям. Обязательно вернусь
-                еще раз.
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.5, display: "block" }}
-              >
-                2 недели назад
-              </Typography>
-            </Box>
+        {reviewsLoading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress />
           </Box>
-        </Card>
+        ) : reviewsError ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {reviewsError}
+          </Alert>
+        ) : reviews.length === 0 ? (
+          <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 2 }}
+            >
+              Пока нет отзывов. Будьте первым, кто оставит отзыв!
+            </Typography>
+          </Card>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {reviews.map((review) => (
+              <Card key={review.id} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
+                  <Avatar
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      mr: 1.5,
+                      bgcolor: "primary.main",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    {review.authorName
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </Avatar>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 0.5,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        {review.authorName}
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <StarIcon
+                            key={star}
+                            sx={{
+                              fontSize: 16,
+                              color: star <= review.rating ? "#FFD700" : "grey.300",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
+                    >
+                      {review.text}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
+                      {formatRelativeTime(review.createdAt)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Card>
+            ))}
+          </Box>
+        )}
       </Box>
 
       {/* CTA Section */}

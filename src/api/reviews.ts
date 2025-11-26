@@ -2,7 +2,6 @@ import { publicApiClient } from "./index";
 
 export interface Review {
   id: string;
-  masterId: string;
   authorName: string;
   rating: number;
   text: string;
