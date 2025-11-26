@@ -20,6 +20,7 @@ import {
   type UpdateServiceRequest,
 } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
+import { clearServicesCache } from "../../utils/servicesCache";
 
 export const ServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -54,6 +55,7 @@ export const ServicesPage: React.FC = () => {
       await meApi.createService(data);
       showSnackbar("Услуга успешно добавлена", "success");
       setAddDialogOpen(false);
+      clearServicesCache(); // Очищаем кеш при добавлении услуги
       loadServices();
     } catch (err) {
       console.error("Ошибка создания услуги:", err);
@@ -68,6 +70,7 @@ export const ServicesPage: React.FC = () => {
       showSnackbar("Услуга успешно обновлена", "success");
       setEditDialogOpen(false);
       setEditingService(null);
+      clearServicesCache(); // Очищаем кеш при обновлении услуги
       loadServices();
     } catch (err) {
       console.error("Ошибка обновления услуги:", err);
@@ -84,6 +87,7 @@ export const ServicesPage: React.FC = () => {
     try {
       await meApi.deleteService(id);
       showSnackbar("Услуга успешно удалена", "success");
+      clearServicesCache(); // Очищаем кеш при удалении услуги
       loadServices();
     } catch (err: any) {
       console.error("Ошибка удаления услуги:", err);

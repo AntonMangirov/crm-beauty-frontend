@@ -30,6 +30,7 @@ import { format, isAfter } from "date-fns";
 import { meApi, type Service, type ClientListItem } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
+import { getCachedServices, setCachedServices } from "../utils/servicesCache";
 
 interface QuickBookingModalProps {
   open: boolean;
@@ -112,14 +113,43 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableSlots]);
 
-  // Загружает список услуг мастера
+  // Загружает список услуг мастера с использованием кеша
   // Эндпоинт: GET /api/me/services
   const loadServices = async () => {
     try {
       setLoadingServices(true);
+      
+      // Пытаемся получить услуги из кеша
+      const cachedServices = getCachedServices();
+      if (cachedServices) {
+        const activeServices = cachedServices.filter((s) => s.isActive);
+        setServices(activeServices);
+        // Автоматически выбираем первую услугу, если есть
+        if (activeServices.length > 0 && !selectedService) {
+          setSelectedService(activeServices[0]);
+        }
+        setLoadingServices(false);
+        
+        // Загружаем свежие данные в фоне для обновления кеша
+        meApi.getServices()
+          .then((data) => {
+            setCachedServices(data);
+            const activeServices = data.filter((s) => s.isActive);
+            setServices(activeServices);
+          })
+          .catch((err) => {
+            console.error("Ошибка фоновой загрузки услуг:", err);
+            // Игнорируем ошибку, используем кеш
+          });
+        return;
+      }
+      
+      // Если кеша нет, загружаем с сервера
       const data = await meApi.getServices();
       const activeServices = data.filter((s) => s.isActive);
       setServices(activeServices);
+      // Сохраняем в кеш
+      setCachedServices(data);
       // Автоматически выбираем первую услугу, если есть
       if (activeServices.length > 0 && !selectedService) {
         setSelectedService(activeServices[0]);
@@ -250,7 +280,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService]);
 
-  // Поиск клиента по имени (с debounce)
+  // Поиск клиента по имени (с debounce 300 мс)
   useEffect(() => {
     if (!name.trim() || name.trim().length < 2 || autoFilled.name) {
       return;
@@ -281,7 +311,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       } finally {
         setSearchingClient(false);
       }
-    }, 500); // Debounce 500ms
+    }, 300); // Debounce 300ms
 
     return () => clearTimeout(searchTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
