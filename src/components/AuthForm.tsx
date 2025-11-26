@@ -3,6 +3,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useRef,
+  useEffect,
 } from "react";
 import {
   TextField,
@@ -19,6 +20,8 @@ import { apiClient } from "../api";
 import { meApi } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { useNavigate } from "react-router-dom";
+import { getRecaptchaToken } from "../utils/recaptcha";
+import { loadRecaptchaScript } from "../utils/loadRecaptcha";
 
 interface AuthFormProps {
   defaultTab?: "login" | "register";
@@ -56,6 +59,7 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
     const [confirmPassword, setConfirmPassword] = useState("");
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
+    const [phoneError, setPhoneError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -65,6 +69,98 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
     const navigate = useNavigate();
 
     const formRef = useRef<HTMLFormElement>(null);
+
+    // Загружаем скрипт reCAPTCHA при монтировании компонента
+    useEffect(() => {
+      if (activeTab === "register") {
+        loadRecaptchaScript();
+      }
+    }, [activeTab]);
+
+    /**
+     * Форматирует телефон в формат +7 (999) 123-45-67
+     */
+    const formatPhoneDisplay = (phone: string): string => {
+      // Удаляем все нецифровые символы кроме +
+      let cleaned = phone.replace(/[^\d+]/g, "");
+
+      // Если начинается с 8, заменяем на +7
+      if (cleaned.startsWith("8")) {
+        cleaned = "+7" + cleaned.slice(1);
+      } else if (cleaned.startsWith("7") && !cleaned.startsWith("+7")) {
+        cleaned = "+7" + cleaned.slice(1);
+      } else if (!cleaned.startsWith("+7") && /^\d/.test(cleaned)) {
+        cleaned = "+7" + cleaned;
+      }
+
+      // Если уже есть +7, убираем все лишние 8 в начале цифр после +7
+      if (cleaned.startsWith("+7")) {
+        let digits = cleaned.slice(2); // Убираем +7
+        // Если первая цифра после +7 это 8, удаляем её (так как +7 уже есть)
+        if (digits.startsWith("8")) {
+          digits = digits.slice(1);
+        }
+        cleaned = "+7" + digits;
+      }
+
+      // Ограничиваем длину (максимум 12 символов: +7 + 10 цифр)
+      if (cleaned.length > 12) {
+        cleaned = cleaned.slice(0, 12);
+      }
+
+      // Форматируем: +7 (999) 123-45-67
+      if (cleaned.startsWith("+7")) {
+        const digits = cleaned.slice(2); // Убираем +7
+        if (digits.length === 0) {
+          return "+7";
+        } else if (digits.length <= 3) {
+          return `+7 (${digits}`;
+        } else if (digits.length <= 6) {
+          return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+        } else if (digits.length <= 8) {
+          return `+7 (${digits.slice(0, 3)}) ${digits.slice(
+            3,
+            6
+          )}-${digits.slice(6)}`;
+        } else {
+          return `+7 (${digits.slice(0, 3)}) ${digits.slice(
+            3,
+            6
+          )}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+        }
+      }
+
+      return cleaned;
+    };
+
+    /**
+     * Извлекает только цифры из телефона для валидации
+     */
+    const getPhoneDigits = (phone: string): string => {
+      return phone.replace(/[^\d]/g, "");
+    };
+
+    /**
+     * Валидация телефона
+     */
+    const validatePhone = (phoneValue: string): boolean => {
+      if (!phoneValue || phoneValue.trim() === "" || phoneValue === "+7") {
+        // Телефон необязательный, если пустой - валидно
+        setPhoneError(null);
+        return true;
+      }
+
+      const phoneDigits = getPhoneDigits(phoneValue);
+      if (phoneDigits.length !== 11 || !phoneDigits.startsWith("7")) {
+        setPhoneError(
+          "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67"
+        );
+        return false;
+      }
+
+      setPhoneError(null);
+      return true;
+    };
 
     useImperativeHandle(ref, () => ({
       submit: () => {
@@ -83,6 +179,7 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
       onTabChange?.(newValue);
       setError(null);
       setPasswordError(null);
+      setPhoneError(null);
       setEmail("");
       setPassword("");
       setConfirmPassword("");
@@ -166,21 +263,42 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
     const handleRegister = async () => {
       setError(null);
       setPasswordError(null);
+      setPhoneError(null);
 
       // Валидация паролей
       if (!validatePasswords()) {
         return;
       }
 
+      // Валидация телефона (если он введен)
+      if (phone && phone.trim() !== "" && phone !== "+7") {
+        if (!validatePhone(phone)) {
+          return;
+        }
+      }
+
       setLoading(true);
       onLoadingChange?.(true);
+
+      // Нормализуем телефон перед отправкой
+      let normalizedPhone: string | undefined = undefined;
+      if (phone && phone.trim() !== "" && phone !== "+7") {
+        const phoneDigits = getPhoneDigits(phone);
+        if (phoneDigits.length === 11 && phoneDigits.startsWith("7")) {
+          normalizedPhone = `+${phoneDigits}`;
+        }
+      }
+
+      // Получаем токен reCAPTCHA для защиты от ботов
+      const recaptchaToken = await getRecaptchaToken("register");
 
       try {
         await apiClient.post("/api/auth/register", {
           email,
           password,
           name,
-          phone: phone || undefined,
+          phone: normalizedPhone,
+          ...(recaptchaToken && { recaptchaToken }),
         });
 
         showSnackbar("Регистрация успешна! Теперь вы можете войти.", "success");
@@ -193,6 +311,7 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
         setPhone("");
         setError(null);
         setPasswordError(null);
+        setPhoneError(null);
         setShowPassword(false);
         setShowConfirmPassword(false);
 
@@ -211,16 +330,102 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
       }
     };
 
+    const handlePhoneChange = (value: string) => {
+      // Разрешаем только цифры, +, пробелы, скобки и дефисы
+      let cleaned = value.replace(/[^\d+\s()-]/g, "");
+
+      // Если поле пустое или содержит только +, устанавливаем +7
+      if (!cleaned || cleaned === "+") {
+        cleaned = "+7";
+      }
+      // Если начинается с 8 (и нет +7), заменяем на +7
+      else if (cleaned.startsWith("8") && !cleaned.startsWith("+7")) {
+        cleaned = "+7" + cleaned.slice(1);
+      }
+      // Если уже есть +7 и пользователь вводит 8, удаляем эту 8
+      else if (
+        cleaned.startsWith("+7") &&
+        cleaned.length > 2 &&
+        cleaned[2] === "8"
+      ) {
+        // Убираем первую 8 после +7
+        cleaned = "+7" + cleaned.slice(3);
+      }
+
+      // Ограничиваем длину (максимум 18 символов с форматированием: +7 (999) 123-45-67)
+      if (cleaned.length > 18) {
+        cleaned = cleaned.slice(0, 18);
+      }
+
+      // Форматируем телефон
+      const formatted = formatPhoneDisplay(cleaned);
+      setPhone(formatted);
+
+      // Валидация в реальном времени
+      if (formatted && formatted.trim() !== "" && formatted !== "+7") {
+        validatePhone(formatted);
+      } else {
+        setPhoneError(null);
+      }
+    };
+
+    const handlePhoneFocus = () => {
+      const value = phone.trim();
+      if (!value || value === "") {
+        setPhone("+7");
+      }
+    };
+
+    const handlePhonePaste = (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const pastedText = e.clipboardData.getData("text").trim();
+
+      // Удаляем все нецифровые символы кроме +
+      let cleaned = pastedText.replace(/[^\d+]/g, "");
+
+      // Если начинается с +7, оставляем как есть (но убираем дубликаты +7)
+      if (cleaned.startsWith("+7")) {
+        cleaned = "+7" + cleaned.replace(/^\+7/g, "");
+        // Убираем первую 8 после +7 если она есть
+        if (cleaned.length > 2 && cleaned[2] === "8") {
+          cleaned = "+7" + cleaned.slice(3);
+        }
+      } else if (cleaned.startsWith("7")) {
+        cleaned = "+" + cleaned;
+      } else if (cleaned.startsWith("8")) {
+        cleaned = "+7" + cleaned.slice(1);
+      } else if (/^\d/.test(cleaned)) {
+        cleaned = "+7" + cleaned;
+      }
+
+      // Ограничиваем длину (12 символов: +7 + 10 цифр)
+      if (cleaned.length > 12) {
+        cleaned = cleaned.slice(0, 12);
+      }
+
+      const formatted = formatPhoneDisplay(cleaned);
+      setPhone(formatted);
+      validatePhone(formatted);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       setPasswordError(null);
+      setPhoneError(null);
 
       if (activeTab === "login") {
         handleLogin();
       } else {
         // Проверяем пароли перед регистрацией
         if (validatePasswords()) {
-          handleRegister();
+          // Проверяем телефон перед регистрацией
+          if (phone && phone.trim() !== "" && phone !== "+7") {
+            if (validatePhone(phone)) {
+              handleRegister();
+            }
+          } else {
+            handleRegister();
+          }
         }
       }
     };
@@ -302,6 +507,12 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
           </Alert>
         )}
 
+        {phoneError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {phoneError}
+          </Alert>
+        )}
+
         <form ref={formRef} onSubmit={handleSubmit}>
           {activeTab === "register" && (
             <TextField
@@ -339,11 +550,39 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
               label="Телефон (необязательно)"
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              onFocus={handlePhoneFocus}
+              onPaste={handlePhonePaste}
+              error={!!phoneError}
               sx={{ mb: 2 }}
               autoComplete="tel"
-              placeholder="+7-999-123-45-67"
+              placeholder="+7 (999) 123-45-67"
               onKeyPress={handleKeyPress}
+              onKeyDown={(e) => {
+                // Запрещаем ввод недопустимых символов
+                const allowedKeys = [
+                  "Backspace",
+                  "Delete",
+                  "Tab",
+                  "Escape",
+                  "Enter",
+                  "ArrowLeft",
+                  "ArrowRight",
+                  "ArrowUp",
+                  "ArrowDown",
+                  "Home",
+                  "End",
+                ];
+
+                if (allowedKeys.includes(e.key)) {
+                  return;
+                }
+
+                // Разрешаем только цифры, +, пробелы, скобки и дефисы
+                if (!/[\d+\s()-]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
             />
           )}
 
