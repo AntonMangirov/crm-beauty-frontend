@@ -22,6 +22,7 @@ import {
   Phone as PhoneIcon,
   Star as StarIcon,
   CloudUpload as CloudUploadIcon,
+  Add as AddIcon,
 } from "@mui/icons-material";
 import { Sidebar } from "../../components/Sidebar";
 import { LocationMapPreview } from "../../components/LocationMapPreview";
@@ -37,6 +38,7 @@ import {
 } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { normalizeImageUrl } from "../../utils/imageUrl";
+import { QuickBookingModal } from "../../components/QuickBookingModal";
 
 export const ProfilePage: React.FC = () => {
   const [master, setMaster] = useState<MeResponse | null>(null);
@@ -47,6 +49,7 @@ export const ProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [quickBookingOpen, setQuickBookingOpen] = useState(false);
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -164,6 +167,34 @@ export const ProfilePage: React.FC = () => {
   return (
     <>
       <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 2.5 } }}>
+        {/* Кнопка быстрой записи - выделена ярким цветом */}
+        <Box sx={{ mb: { xs: 2, sm: 2.5 } }}>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            startIcon={<AddIcon />}
+            onClick={() => setQuickBookingOpen(true)}
+            sx={{
+              bgcolor: "success.main",
+              color: "white",
+              py: 2,
+              fontSize: { xs: "1rem", sm: "1.125rem" },
+              fontWeight: 600,
+              textTransform: "none",
+              boxShadow: 3,
+              "&:hover": {
+                bgcolor: "success.dark",
+                boxShadow: 6,
+                transform: "translateY(-2px)",
+              },
+              transition: "all 0.2s ease-in-out",
+            }}
+          >
+            Быстрая запись
+          </Button>
+        </Box>
+
         {/* Hero Section */}
         <Card
           sx={{
@@ -522,6 +553,18 @@ export const ProfilePage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Модальное окно быстрой записи */}
+      {master && master.slug && (
+        <QuickBookingModal
+          open={quickBookingOpen}
+          onClose={() => setQuickBookingOpen(false)}
+          masterSlug={master.slug}
+          onSuccess={() => {
+            loadMaster();
+          }}
+        />
+      )}
     </>
   );
 };

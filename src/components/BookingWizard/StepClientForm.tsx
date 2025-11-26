@@ -225,28 +225,18 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
       let normalizedTelegramUsername: string | undefined = undefined;
       if (formData.telegramUsername && formData.telegramUsername.trim()) {
         const cleaned = formData.telegramUsername.trim().replace(/^@/, "");
-        console.log('[DEBUG StepClientForm] telegramUsername cleaned:', cleaned, 'length:', cleaned.length);
         if (cleaned.length >= 5) {
           normalizedTelegramUsername = cleaned.toLowerCase();
-          console.log('[DEBUG StepClientForm] normalizedTelegramUsername:', normalizedTelegramUsername);
-        } else {
-          console.log('[DEBUG StepClientForm] telegramUsername too short:', cleaned.length);
         }
-      } else {
-        console.log('[DEBUG StepClientForm] telegramUsername is empty or undefined');
       }
 
-      const submitData = {
+      // Отправляем данные
+      await onFormSubmit({
         name: formData.name,
         ...(normalizedPhone && { phone: normalizedPhone }),
         ...(normalizedTelegramUsername && { telegramUsername: normalizedTelegramUsername }),
         ...(formData.comment && { comment: formData.comment }),
-      };
-      
-      console.log('[DEBUG StepClientForm] Submitting data:', submitData);
-
-      // Отправляем данные
-      await onFormSubmit(submitData);
+      });
     } catch (error) {
       // Ошибка обрабатывается в родительском компоненте
     } finally {

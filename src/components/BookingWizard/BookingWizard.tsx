@@ -147,10 +147,6 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         ...(recaptchaToken && { recaptchaToken }),
       };
 
-      // Временное логирование для отладки
-      console.log('[DEBUG] Booking data before send:', bookingData);
-      console.log('[DEBUG] formData:', formData);
-
       const response = await mastersApi.bookAppointment(
         masterSlug,
         bookingData

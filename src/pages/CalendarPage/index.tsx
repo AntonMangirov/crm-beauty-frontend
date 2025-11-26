@@ -37,11 +37,13 @@ import {
   PhotoCamera as PhotoCameraIcon,
   CheckCircle as CheckCircleIcon,
   Image as ImageIcon,
+  Add as AddIcon,
 } from "@mui/icons-material";
 import { meApi, type Appointment } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { PhotoUploader } from "../../components/PhotoUploader";
 import { normalizeImageUrl } from "../../utils/imageUrl";
+import { QuickBookingModal } from "../../components/QuickBookingModal";
 
 const statusColors: Record<
   Appointment["status"],
@@ -72,6 +74,8 @@ export const CalendarPage: React.FC = () => {
   const [datesWithCompletedPhotos, setDatesWithCompletedPhotos] = useState<Set<string>>(new Set());
   const [photoUploaderOpen, setPhotoUploaderOpen] = useState(false);
   const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
+  const [quickBookingOpen, setQuickBookingOpen] = useState(false);
+  const [masterSlug, setMasterSlug] = useState<string>("");
   // Выходные дни мастера (опционально выставляются мастером через настройки)
   // Формат: Set дат в формате "yyyy-MM-dd"
   // TODO: Загружать из API /api/me/days-off при монтировании компонента
@@ -79,6 +83,19 @@ export const CalendarPage: React.FC = () => {
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // Загружаем slug мастера при монтировании
+  useEffect(() => {
+    const loadMasterSlug = async () => {
+      try {
+        const master = await meApi.getMe();
+        setMasterSlug(master.slug);
+      } catch (err) {
+        console.error("Ошибка загрузки данных мастера:", err);
+      }
+    };
+    loadMasterSlug();
+  }, []);
 
   useEffect(() => {
     if (selectedDate) {
@@ -664,8 +681,17 @@ export const CalendarPage: React.FC = () => {
               alignItems: "center", 
               gap: 1,
               width: { xs: "100%", sm: "auto" },
+              flexWrap: "wrap",
             }}
           >
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setQuickBookingOpen(true)}
+              sx={{ textTransform: "none" }}
+            >
+              Быстрая запись
+            </Button>
             <CalendarIcon sx={{ color: "primary.main", display: { xs: "none", sm: "block" } }} />
             <DatePicker
               label="Выберите дату"
@@ -1104,6 +1130,19 @@ export const CalendarPage: React.FC = () => {
             appointmentId={selectedAppointmentForPhotos.id}
             existingPhotos={selectedAppointmentForPhotos.photos || []}
             onPhotosUpdated={handlePhotosUpdated}
+          />
+        )}
+
+        {/* Модальное окно быстрой записи */}
+        {masterSlug && (
+          <QuickBookingModal
+            open={quickBookingOpen}
+            onClose={() => setQuickBookingOpen(false)}
+            masterSlug={masterSlug}
+            onSuccess={() => {
+              loadAppointments();
+              loadDatesWithAppointments();
+            }}
           />
         )}
       </Box>
