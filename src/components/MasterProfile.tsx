@@ -22,6 +22,7 @@ import {
 import { ServiceCard } from "./ServiceCard";
 import { LocationMapPreview } from "./LocationMapPreview";
 import { ReviewFormDialog } from "./ReviewFormDialog";
+import { PortfolioGallery } from "./PortfolioGallery";
 import type { Master } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
 
@@ -403,6 +404,11 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             </Grid>
           )}
         </Grid>
+      )}
+
+      {/* Примеры работ */}
+      {master.portfolio && master.portfolio.length > 0 && (
+        <PortfolioGallery photos={master.portfolio} />
       )}
 
       {/* Услуги */}

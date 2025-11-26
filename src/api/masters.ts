@@ -1,5 +1,12 @@
 import { publicApiClient } from "./index";
 
+export interface PortfolioPhoto {
+  id: string;
+  url: string;
+  description?: string | null;
+  createdAt: string;
+}
+
 export interface Master {
   slug: string;
   name: string;
@@ -15,6 +22,7 @@ export interface Master {
   rating?: number | null;
   backgroundImageUrl?: string | null; // Фоновое изображение для карточки мастера
   services: Service[];
+  portfolio?: PortfolioPhoto[]; // Примеры работ мастера
 }
 
 export interface Service {
