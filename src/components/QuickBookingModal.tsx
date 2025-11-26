@@ -63,6 +63,14 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
   const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
+  const [lastManualAppointments, setLastManualAppointments] = useState<Array<{
+    id: string;
+    serviceId: string;
+    service: Service;
+    createdAt: string;
+  }>>([]);
+  const [topServices, setTopServices] = useState<Array<Service & { usageCount: number }>>([]);
+  const [loadingLastAppointments, setLoadingLastAppointments] = useState(false);
   const { showSnackbar } = useSnackbar();
 
   // Загружаем услуги при открытии модального окна
@@ -70,6 +78,8 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   useEffect(() => {
     if (open) {
       loadServices();
+      loadLastManualAppointments();
+      loadTopServices();
       // Устанавливаем ближайшую доступную дату (завтра)
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -120,6 +130,40 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       setLoadingServices(false);
     }
   };
+
+  // Загружает последние ручные записи для быстрого повтора услуги
+  const loadLastManualAppointments = async () => {
+    try {
+      setLoadingLastAppointments(true);
+      const data = await meApi.getLastManualAppointments(3);
+      setLastManualAppointments(data);
+    } catch (err) {
+      console.error("Ошибка загрузки последних записей:", err);
+    } finally {
+      setLoadingLastAppointments(false);
+    }
+  };
+
+  // Загружает топ-5 наиболее используемых услуг
+  const loadTopServices = async () => {
+    try {
+      const data = await meApi.getTopServices(5, 90);
+      setTopServices(data);
+    } catch (err) {
+      console.error("Ошибка загрузки топ услуг:", err);
+    }
+  };
+
+  // Обновляем выбранную услугу после загрузки последних записей и услуг
+  useEffect(() => {
+    if (lastManualAppointments.length > 0 && !selectedService && services.length > 0) {
+      const lastService = services.find(s => s.id === lastManualAppointments[0].serviceId);
+      if (lastService) {
+        setSelectedService(lastService);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastManualAppointments, services]);
 
   // Загружает ближайшие свободные слоты для выбранной даты и услуги
   // Эндпоинт: GET /api/public/:slug/timeslots?date=YYYY-MM-DD&serviceId=xxx
@@ -383,10 +427,12 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         phone?: string;
         telegramUsername?: string;
         comment?: string;
+        source?: 'MANUAL' | 'PHONE' | 'WEB' | 'TELEGRAM' | 'VK' | 'WHATSAPP';
       } = {
         name: name.trim(),
         serviceId: selectedService.id,
         startAt: startAtISO,
+        source: 'MANUAL', // Устанавливаем source=MANUAL для записей из ЛК мастера
       };
 
       if (contactType === "phone") {
@@ -583,6 +629,63 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
             {/* Услуга */}
             <Grid size={{ xs: 12 }}>
+              {/* Кнопка "Повторить прошлую услугу" */}
+              {lastManualAppointments.length > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      const lastAppointment = lastManualAppointments[0];
+                      const service = services.find(s => s.id === lastAppointment.serviceId);
+                      if (service) {
+                        setSelectedService(service);
+                        setServiceSearch("");
+                      }
+                    }}
+                    sx={{ textTransform: "none", fontSize: "0.875rem" }}
+                    disabled={loadingLastAppointments}
+                  >
+                    🔄 Повторить прошлую услугу: {lastManualAppointments[0].service.name}
+                  </Button>
+                </Box>
+              )}
+              
+              {/* Топ-5 услуг */}
+              {topServices.length > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                    Популярные услуги:
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                    {topServices.slice(0, 5).map((service) => (
+                      <Chip
+                        key={service.id}
+                        label={`${service.name} (${service.usageCount})`}
+                        size="small"
+                        onClick={() => {
+                          const fullService = services.find(s => s.id === service.id);
+                          if (fullService) {
+                            setSelectedService(fullService);
+                            setServiceSearch("");
+                          }
+                        }}
+                        sx={{
+                          cursor: "pointer",
+                          fontSize: "0.75rem",
+                          height: "24px",
+                          bgcolor: selectedService?.id === service.id ? "primary.main" : "action.selected",
+                          color: selectedService?.id === service.id ? "primary.contrastText" : "text.primary",
+                          "&:hover": {
+                            bgcolor: selectedService?.id === service.id ? "primary.dark" : "action.hover",
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              
               <Autocomplete
                 options={filteredServices}
                 getOptionLabel={(option) => option.name}

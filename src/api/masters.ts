@@ -41,6 +41,7 @@ export interface BookingRequest {
   startAt: string; // ISO строка
   comment?: string;
   recaptchaToken?: string; // reCAPTCHA v3 токен (опционально в dev режиме)
+  source?: 'MANUAL' | 'PHONE' | 'WEB' | 'TELEGRAM' | 'VK' | 'WHATSAPP'; // Источник записи
 }
 
 export interface BookingResponse {
@@ -99,6 +100,11 @@ export const mastersApi = {
     
     if (bookingData.comment) {
       requestBody.comment = bookingData.comment;
+    }
+    
+    // Добавляем source только если он указан
+    if (bookingData.source) {
+      requestBody.source = bookingData.source;
     }
     
     // Добавляем recaptchaToken только если он есть

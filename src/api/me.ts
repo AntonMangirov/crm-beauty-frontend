@@ -312,6 +312,38 @@ export const meApi = {
   },
 
   /**
+   * GET /api/me/appointments/last-manual
+   * Получить последние ручные записи (source = MANUAL или PHONE)
+   */
+  getLastManualAppointments: async (limit?: number): Promise<Array<{
+    id: string;
+    serviceId: string;
+    service: Service;
+    createdAt: string;
+  }>> => {
+    const params = new URLSearchParams();
+    if (limit) params.append("limit", limit.toString());
+    const queryString = params.toString();
+    const url = `/api/me/appointments/last-manual${queryString ? `?${queryString}` : ""}`;
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  /**
+   * GET /api/me/services/top
+   * Получить топ-5 наиболее используемых услуг
+   */
+  getTopServices: async (limit?: number, days?: number): Promise<Array<Service & { usageCount: number }>> => {
+    const params = new URLSearchParams();
+    if (limit) params.append("limit", limit.toString());
+    if (days) params.append("days", days.toString());
+    const queryString = params.toString();
+    const url = `/api/me/services/top${queryString ? `?${queryString}` : ""}`;
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  /**
    * POST /api/me/appointments/:id/photos
    * Загрузить фото к записи
    */
