@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -17,9 +17,11 @@ import {
   Phone as PhoneIcon,
   Star as StarIcon,
   RateReview as ReviewIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
 import { ServiceCard } from "./ServiceCard";
 import { LocationMapPreview } from "./LocationMapPreview";
+import { ReviewFormDialog } from "./ReviewFormDialog";
 import type { Master } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
 
@@ -33,9 +35,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   masterSlug,
 }) => {
   const navigate = useNavigate();
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
 
   const handleBookClick = () => {
     navigate(`/${masterSlug}/book`);
+  };
+
+  const handleReviewSuccess = () => {
+    // Здесь можно добавить обновление списка отзывов, если нужно
+    // Например, перезагрузить данные мастера
   };
 
   const normalizedPhotoUrl = normalizeImageUrl(master.photoUrl);
@@ -428,16 +436,36 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
 
       {/* Отзывы */}
       <Box id="reviews" sx={{ mb: { xs: 2, sm: 2.5 }, scrollMarginTop: 20 }}>
-        <Typography
-          variant="h6"
+        <Box
           sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             mb: { xs: 1.5, sm: 2 },
-            fontWeight: 600,
-            fontSize: { xs: "1.25rem", sm: "1.5rem" },
+            flexWrap: "wrap",
+            gap: 1,
           }}
         >
-          Отзывы
-        </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              fontSize: { xs: "1.25rem", sm: "1.5rem" },
+            }}
+          >
+            Отзывы
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setReviewDialogOpen(true)}
+            sx={{
+              textTransform: "none",
+            }}
+          >
+            Написать отзыв
+          </Button>
+        </Box>
 
         {/* Демо-отзыв */}
         <Card sx={{ p: { xs: 1.5, sm: 2 }, mb: 1 }}>
@@ -542,6 +570,14 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           Записаться
         </Button>
       </Card>
+
+      {/* Диалог формы отзыва */}
+      <ReviewFormDialog
+        open={reviewDialogOpen}
+        onClose={() => setReviewDialogOpen(false)}
+        masterSlug={masterSlug}
+        onSuccess={handleReviewSuccess}
+      />
     </Container>
   );
 };
