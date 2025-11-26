@@ -31,6 +31,7 @@ import { meApi, type Service, type ClientListItem } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
 import { getCachedServices, setCachedServices } from "../utils/servicesCache";
+import { parseBookingText } from "../utils/textParser";
 
 interface QuickBookingModalProps {
   open: boolean;
@@ -57,6 +58,8 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]); // Занятые слоты
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [alternativeDays, setAlternativeDays] = useState<Array<{ date: Date; slots: string[] }>>([]);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSettings, setExpandedSettings] = useState(false);
@@ -242,12 +245,77 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         console.error("Ошибка загрузки занятых слотов:", err);
         setBookedSlots([]);
       }
+
+      // Если нет свободных слотов, ищем альтернативные дни
+      if (response.available.length === 0) {
+        loadAlternativeDays(selectedDate, selectedService);
+      } else {
+        setAlternativeDays([]);
+      }
     } catch (err) {
       console.error("Ошибка загрузки свободных слотов:", err);
       setAvailableSlots([]);
       setBookedSlots([]);
+      setAlternativeDays([]);
     } finally {
       setLoadingSlots(false);
+    }
+  };
+
+  // Загружает альтернативные дни со свободными слотами
+  const loadAlternativeDays = async (currentDate: Date | null, service: Service | null) => {
+    if (!currentDate || !service || !masterSlug) return;
+
+    try {
+      setLoadingAlternatives(true);
+      const alternatives: Array<{ date: Date; slots: string[] }> = [];
+      const checkedDays = new Set<string>();
+
+      // Проверяем следующие 7 дней
+      for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
+        const checkDate = new Date(currentDate);
+        checkDate.setDate(checkDate.getDate() + dayOffset);
+        checkDate.setHours(0, 0, 0, 0);
+
+        const dateKey = format(checkDate, "yyyy-MM-dd");
+        if (checkedDays.has(dateKey)) continue;
+        checkedDays.add(dateKey);
+
+        const year = checkDate.getFullYear();
+        const month = checkDate.getMonth();
+        const day = checkDate.getDate();
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+        try {
+          const response = await mastersApi.getTimeslots(
+            masterSlug,
+            dateStr,
+            service.id
+          );
+
+          if (response.available.length > 0) {
+            alternatives.push({
+              date: checkDate,
+              slots: response.available,
+            });
+
+            // Останавливаемся, когда найдем 3 дня со свободными слотами
+            if (alternatives.length >= 3) {
+              break;
+            }
+          }
+        } catch (err) {
+          // Игнорируем ошибки для отдельных дней
+          console.error(`Ошибка проверки дня ${dateStr}:`, err);
+        }
+      }
+
+      setAlternativeDays(alternatives);
+    } catch (err) {
+      console.error("Ошибка загрузки альтернативных дней:", err);
+      setAlternativeDays([]);
+    } finally {
+      setLoadingAlternatives(false);
     }
   };
 
@@ -588,8 +656,63 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                     setAutoFilled({ ...autoFilled, name: false });
                   }
                 }}
+                onPaste={(e) => {
+                  // Обрабатываем вставку текста из буфера обмена
+                  const pastedText = e.clipboardData.getData("text");
+                  const parsed = parseBookingText(pastedText, services);
+
+                  if (parsed.name || parsed.contact || parsed.time || parsed.serviceName) {
+                    e.preventDefault();
+
+                    // Заполняем имя
+                    if (parsed.name && !name.trim()) {
+                      setName(parsed.name);
+                    }
+
+                    // Заполняем контакт
+                    if (parsed.contact && !contact.trim()) {
+                      if (parsed.contactType === "telegram") {
+                        setContactType("telegram");
+                        setContact(parsed.contact);
+                      } else {
+                        setContactType("phone");
+                        handlePhoneChange(parsed.contact);
+                      }
+                    }
+
+                    // Заполняем время
+                    if (parsed.time && selectedDate) {
+                      const [hours, minutes] = parsed.time.split(":").map(Number);
+                      const timeDate = new Date(selectedDate);
+                      timeDate.setHours(hours, minutes, 0, 0);
+                      setSelectedTime(timeDate);
+                    }
+
+                    // Заполняем услугу
+                    if (parsed.serviceName) {
+                      const matchedService = services.find(
+                        (s) => s.name.toLowerCase() === parsed.serviceName?.toLowerCase()
+                      );
+                      if (matchedService) {
+                        setSelectedService(matchedService);
+                        setServiceSearch("");
+                      } else {
+                        // Пытаемся найти по частичному совпадению
+                        const partialMatch = services.find((s) =>
+                          s.name.toLowerCase().includes(parsed.serviceName!.toLowerCase())
+                        );
+                        if (partialMatch) {
+                          setSelectedService(partialMatch);
+                          setServiceSearch("");
+                        }
+                      }
+                    }
+
+                    showSnackbar("Данные автоматически заполнены из буфера обмена", "success");
+                  }
+                }}
                 required
-                placeholder="Введите имя"
+                placeholder="Введите имя или вставьте текст (например: 'Катя @kate 14:00 ресницы')"
                 autoFocus
                 InputProps={{
                   endAdornment: searchingClient ? (
@@ -608,7 +731,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                     ? "Имя найдено по контакту"
                     : name.trim().length >= 2
                     ? "Идет поиск клиента..."
-                    : undefined
+                    : "Можно вставить текст из буфера обмена для автоматического заполнения"
                 }
               />
             </Grid>
@@ -820,6 +943,41 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                   {loadingSlots ? (
                     <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
                       <CircularProgress size={20} />
+                    </Box>
+                  ) : availableSlots.length === 0 && !loadingAlternatives ? (
+                    <Box>
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        В этот день нет свободных слотов
+                      </Alert>
+                      {alternativeDays.length > 0 && (
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                            Ближайшие дни со свободными слотами:
+                          </Typography>
+                          {alternativeDays.map((altDay) => {
+                            const dateStr = format(altDay.date, "dd.MM.yyyy (EEEE)", { locale: ru });
+                            return (
+                              <Button
+                                key={altDay.date.toISOString()}
+                                variant="outlined"
+                                size="small"
+                                onClick={() => {
+                                  setSelectedDate(altDay.date);
+                                  setSelectedTime(null);
+                                }}
+                                sx={{
+                                  textTransform: "none",
+                                  mb: 1,
+                                  mr: 1,
+                                  display: "block",
+                                }}
+                              >
+                                {dateStr} ({altDay.slots.length} слотов)
+                              </Button>
+                            );
+                          })}
+                        </Box>
+                      )}
                     </Box>
                   ) : (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
