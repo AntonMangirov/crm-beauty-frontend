@@ -1,4 +1,4 @@
-import { apiClient } from "./index";
+import { publicApiClient } from "./index";
 
 export interface Master {
   slug: string;
@@ -47,7 +47,7 @@ export interface TimeslotsResponse {
 
 export const mastersApi = {
   getBySlug: async (slug: string): Promise<Master> => {
-    const response = await apiClient.get(`/api/public/${slug}`);
+    const response = await publicApiClient.get(`/api/public/${slug}`);
     return response.data;
   },
 
@@ -64,7 +64,7 @@ export const mastersApi = {
     const url = `/api/public/${slug}/timeslots${
       queryString ? `?${queryString}` : ""
     }`;
-    const response = await apiClient.get(url);
+    const response = await publicApiClient.get(url);
     return response.data;
   },
 
@@ -88,7 +88,7 @@ export const mastersApi = {
       requestBody.recaptchaToken = bookingData.recaptchaToken;
     }
     
-    const response = await apiClient.post(`/api/public/${slug}/book`, requestBody);
+    const response = await publicApiClient.post(`/api/public/${slug}/book`, requestBody);
     return response.data;
   },
 };

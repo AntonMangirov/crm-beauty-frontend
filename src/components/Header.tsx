@@ -167,19 +167,41 @@ export const Header: React.FC<HeaderProps> = ({
           </IconButton>
         )}
 
-        <Typography
-          variant="h5"
-          component="div"
+        <Box
           sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
             flexGrow: 1,
             cursor: "pointer",
-            fontWeight: 700,
-            letterSpacing: "0.5px",
           }}
           onClick={() => navigate("/")}
         >
-          Beauty CRM
-        </Typography>
+          <Box
+            component="img"
+            src="/ico.svg"
+            alt="Beauty CRM Logo"
+            sx={{
+              width: 48,
+              height: 48,
+              filter: "brightness(0) invert(1)", // Перекрашиваем в белый цвет
+              transition: "opacity 0.2s",
+              "&:hover": {
+                opacity: 0.8,
+              },
+            }}
+          />
+          <Typography
+            variant="h5"
+            component="div"
+            sx={{
+              fontWeight: 700,
+              letterSpacing: "0.5px",
+            }}
+          >
+            Beauty CRM
+          </Typography>
+        </Box>
 
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <Button

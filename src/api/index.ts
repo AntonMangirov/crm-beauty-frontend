@@ -119,4 +119,14 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Публичный API клиент без credentials для публичных эндпоинтов
+export const publicApiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  withCredentials: false, // Не отправляем cookies для публичных запросов
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
 export default apiClient;
