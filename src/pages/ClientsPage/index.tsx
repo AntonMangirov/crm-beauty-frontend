@@ -258,41 +258,51 @@ export const ClientsPage: React.FC = () => {
             },
           }}
         >
-          <DataGrid
-            rows={clients}
-            columns={columns}
-            getRowId={(row) => row.id}
-            autoHeight
-            disableRowSelectionOnClick
-            onRowClick={handleRowClick}
-            pageSizeOptions={[10, 25, 50, 100]}
-            initialState={{
-              pagination: {
-                paginationModel: { pageSize: 25 },
-              },
-            }}
+          <Box
             sx={{
-              border: "none",
-              cursor: "pointer",
-              "& .MuiDataGrid-row:hover": {
-                bgcolor: "action.hover",
-                transform: "none",
-              },
-              "& .MuiDataGrid-cell": {
-                borderBottom: "1px solid",
-                borderColor: "divider",
-              },
-              "& .MuiDataGrid-columnHeaders": {
-                borderBottom: "2px solid",
-                borderColor: "divider",
-                bgcolor: "background.paper",
-              },
-              "& .MuiDataGrid-footerContainer": {
-                borderTop: "1px solid",
-                borderColor: "divider",
-              },
+              width: "100%",
+              overflowX: "auto",
             }}
-          />
+          >
+            <DataGrid
+              rows={clients}
+              columns={columns}
+              getRowId={(row) => row.id}
+              autoHeight
+              disableRowSelectionOnClick
+              onRowClick={handleRowClick}
+              pageSizeOptions={[10, 25, 50, 100]}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: isMobile ? 10 : 25 },
+                },
+              }}
+              sx={{
+                border: "none",
+                cursor: "pointer",
+                minWidth: isMobile ? 800 : "auto",
+                "& .MuiDataGrid-row:hover": {
+                  bgcolor: "action.hover",
+                  transform: "none",
+                },
+                "& .MuiDataGrid-cell": {
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                },
+                "& .MuiDataGrid-columnHeaders": {
+                  borderBottom: "2px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: "1px solid",
+                  borderColor: "divider",
+                },
+              }}
+            />
+          </Box>
         </Card>
       )}
 

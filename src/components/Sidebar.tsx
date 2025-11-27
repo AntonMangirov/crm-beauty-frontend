@@ -10,6 +10,8 @@ import {
   Box,
   Divider,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   Person as PersonIcon,
@@ -44,9 +46,11 @@ const menuItems: MenuItem[] = [
   { label: "Настройки", icon: <SettingsIcon />, path: "/master/settings" },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const handleNavigate = (path: string) => {
     navigate(path);
@@ -57,7 +61,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
 
   return (
     <Drawer
-      variant="permanent"
+      variant={isMobile ? "temporary" : "permanent"}
+      open={isMobile ? open : true}
+      onClose={onClose}
+      ModalProps={{
+        keepMounted: true, // Лучше для мобильных устройств
+      }}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
@@ -66,11 +75,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
           boxSizing: "border-box",
           borderRight: "1px solid",
           borderColor: "divider",
-          mt: 8, // Отступ сверху для Header
+          position: "relative", // Убеждаемся, что сайдбар в потоке документа
+          height: "auto", // Автоматическая высота по содержимому
+          overflow: "visible", // Убираем отдельную прокрутку
         },
       }}
     >
-      <Box sx={{ overflow: "auto", pt: 2 }}>
+      <Box sx={{ pt: 2 }}>
         <Box sx={{ px: 2, pb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
             Кабинет мастера
@@ -79,9 +90,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
         <Divider />
         <List>
           {menuItems.map((item) => {
+            // Для "/master" проверяем точное совпадение, чтобы не выделять при переходе на другие страницы
+            // Для остальных путей проверяем точное совпадение или что путь начинается с этого пути + "/"
             const isActive =
-              location.pathname === item.path ||
-              location.pathname.startsWith(item.path + "/");
+              item.path === "/master"
+                ? location.pathname === item.path
+                : location.pathname === item.path ||
+                  location.pathname.startsWith(item.path + "/");
             return (
               <ListItem key={item.path} disablePadding>
                 <ListItemButton

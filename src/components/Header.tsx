@@ -9,6 +9,8 @@ import {
   Menu,
   MenuItem,
   Avatar,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [master, setMaster] = useState<MeResponse | null>(null);
@@ -161,22 +165,25 @@ export const Header: React.FC<HeaderProps> = ({
             sx={{
               fontWeight: 700,
               letterSpacing: "0.5px",
+              fontSize: { xs: "1.125rem", sm: "1.5rem" },
             }}
           >
             Beauty CRM
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center" }}>
           <Button
             color="inherit"
             onClick={() => navigate("/dashboard")}
             sx={{
               textTransform: "none",
               fontWeight: 500,
-              px: 2,
-              py: 1,
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
               borderRadius: 2,
+              fontSize: { xs: "0.75rem", sm: "1rem" },
+              display: { xs: "none", md: "inline-flex" },
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
               },
@@ -190,9 +197,11 @@ export const Header: React.FC<HeaderProps> = ({
             sx={{
               textTransform: "none",
               fontWeight: 500,
-              px: 2,
-              py: 1,
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
               borderRadius: 2,
+              fontSize: { xs: "0.75rem", sm: "1rem" },
+              display: { xs: "none", md: "inline-flex" },
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
               },

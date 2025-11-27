@@ -15,7 +15,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+  AppBar,
+  Toolbar,
 } from "@mui/material";
+import { Menu as MenuIcon } from "@mui/icons-material";
 import {
   Edit as EditIcon,
   LocationOn as LocationIcon,
@@ -225,123 +231,146 @@ export const ProfilePage: React.FC = () => {
           }}
         >
           <Box sx={{ p: { xs: 1.5, sm: 2 }, position: "relative", zIndex: 2 }}>
-            <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1.5 }}>
-              {/* Аватар */}
-              {master.photoUrl ? (
-                <Avatar
-                  src={normalizeImageUrl(master.photoUrl)}
-                  alt={master.name}
-                  sx={{
-                    width: { xs: 64, sm: 80 },
-                    height: { xs: 64, sm: 80 },
-                    mr: { xs: 1.5, sm: 2 },
-                    border: "2px solid",
-                    borderColor: "white",
-                    boxShadow: 2,
-                  }}
-                />
-              ) : (
-                <Avatar
-                  sx={{
-                    width: { xs: 64, sm: 80 },
-                    height: { xs: 64, sm: 80 },
-                    bgcolor: "primary.main",
-                    color: "white",
-                    fontSize: { xs: "1.5rem", sm: "2rem" },
-                    fontWeight: 600,
-                    mr: { xs: 1.5, sm: 2 },
-                    border: "2px solid",
-                    borderColor: "white",
-                    boxShadow: 2,
-                  }}
-                >
-                  {master.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </Avatar>
-              )}
-
-              {/* Информация */}
-              <Box sx={{ flexGrow: 1 }}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1,
-                    mb: 0.5,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Typography
-                    variant="h5"
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                mb: 1.5,
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 1.5, sm: 0 },
+              }}
+            >
+              {/* Аватар и информация */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  flexGrow: 1,
+                  width: { xs: "100%", sm: "auto" },
+                }}
+              >
+                {/* Аватар */}
+                {master.photoUrl ? (
+                  <Avatar
+                    src={normalizeImageUrl(master.photoUrl)}
+                    alt={master.name}
                     sx={{
-                      fontWeight: 600,
-                      fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                      width: { xs: 64, sm: 80 },
+                      height: { xs: 64, sm: 80 },
+                      mr: { xs: 1.5, sm: 2 },
+                      border: "2px solid",
+                      borderColor: "white",
+                      boxShadow: 2,
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <Avatar
+                    sx={{
+                      width: { xs: 64, sm: 80 },
+                      height: { xs: 64, sm: 80 },
+                      bgcolor: "primary.main",
                       color: "white",
+                      fontSize: { xs: "1.5rem", sm: "2rem" },
+                      fontWeight: 600,
+                      mr: { xs: 1.5, sm: 2 },
+                      border: "2px solid",
+                      borderColor: "white",
+                      boxShadow: 2,
+                      flexShrink: 0,
                     }}
                   >
-                    {master.name}
-                  </Typography>
-                  {master.rating !== null && master.rating !== undefined && (
+                    {master.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </Avatar>
+                )}
+
+                {/* Информация */}
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 0.5,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                        color: "white",
+                      }}
+                    >
+                      {master.name}
+                    </Typography>
+                    {master.rating !== null && master.rating !== undefined && (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.25,
+                        }}
+                      >
+                        <StarIcon sx={{ fontSize: 16, color: "#FFD700" }} />
+                        <Typography variant="body2" sx={{ color: "white" }}>
+                          {master.rating.toFixed(1)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+
+                  {master.address && (
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 0.25,
+                        gap: 0.5,
+                        mb: 1,
                       }}
                     >
-                      <StarIcon sx={{ fontSize: 16, color: "#FFD700" }} />
-                      <Typography variant="body2" sx={{ color: "white" }}>
-                        {master.rating.toFixed(1)}
+                      <LocationIcon
+                        fontSize="small"
+                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "rgba(255, 255, 255, 0.9)",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {master.address}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {master.phone && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        mb: 1,
+                      }}
+                    >
+                      <PhoneIcon
+                        fontSize="small"
+                        sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "rgba(255, 255, 255, 0.9)" }}
+                      >
+                        {master.phone}
                       </Typography>
                     </Box>
                   )}
                 </Box>
-
-                {master.address && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                      mb: 1,
-                    }}
-                  >
-                    <LocationIcon
-                      fontSize="small"
-                      sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "rgba(255, 255, 255, 0.9)" }}
-                    >
-                      {master.address}
-                    </Typography>
-                  </Box>
-                )}
-
-                {master.phone && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                      mb: 1,
-                    }}
-                  >
-                    <PhoneIcon
-                      fontSize="small"
-                      sx={{ fontSize: 16, color: "rgba(255, 255, 255, 0.9)" }}
-                    />
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "rgba(255, 255, 255, 0.9)" }}
-                    >
-                      {master.phone}
-                    </Typography>
-                  </Box>
-                )}
               </Box>
 
               {/* Кнопка редактирования */}
@@ -349,15 +378,31 @@ export const ProfilePage: React.FC = () => {
                 variant="contained"
                 startIcon={<EditIcon />}
                 onClick={handleEditClick}
+                fullWidth={false}
                 sx={{
                   bgcolor: "rgba(255, 255, 255, 0.95)",
                   color: "text.primary",
                   "&:hover": {
                     bgcolor: "white",
                   },
+                  width: { xs: "100%", sm: "auto" },
+                  mt: { xs: 1, sm: 0 },
+                  fontSize: { xs: "0.875rem", sm: "1rem" },
+                  px: { xs: 2, sm: 2 },
                 }}
               >
-                Редактировать профиль
+                <Box
+                  component="span"
+                  sx={{ display: { xs: "none", sm: "inline" } }}
+                >
+                  Редактировать профиль
+                </Box>
+                <Box
+                  component="span"
+                  sx={{ display: { xs: "inline", sm: "none" } }}
+                >
+                  Редактировать
+                </Box>
               </Button>
             </Box>
           </Box>
@@ -571,26 +616,66 @@ export const ProfilePage: React.FC = () => {
 };
 
 export const MasterCabinet: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  const handleDrawerClose = () => {
+    setMobileOpen(false);
+  };
+
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          bgcolor: "background.default",
-          width: { md: `calc(100% - 240px)` },
-        }}
-      >
-        <Routes>
-          <Route path="/" element={<ProfilePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/portfolio" element={<PortfolioPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+      {/* Мобильный AppBar с бургер-меню */}
+      {isMobile && (
+        <AppBar
+          position="fixed"
+          sx={{
+            zIndex: (theme) => theme.zIndex.drawer + 1,
+          }}
+        >
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div">
+              Кабинет мастера
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      )}
+
+      <Box sx={{ display: "flex", flexGrow: 1, mt: isMobile ? 8 : 0 }}>
+        <Sidebar open={mobileOpen} onClose={handleDrawerClose} />
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            bgcolor: "background.default",
+            width: { md: `calc(100% - 240px)` },
+            p: { xs: 0, sm: 0 },
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<ProfilePage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/portfolio" element={<PortfolioPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </Box>
       </Box>
     </Box>
   );

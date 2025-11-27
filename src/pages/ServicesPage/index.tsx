@@ -112,8 +112,10 @@ export const ServicesPage: React.FC = () => {
             sx={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: { xs: "flex-start", sm: "center" },
               mb: { xs: 2, sm: 2.5 },
+              flexDirection: { xs: "column", sm: "row" },
+              gap: { xs: 1.5, sm: 0 },
             }}
           >
             <Typography
@@ -129,7 +131,11 @@ export const ServicesPage: React.FC = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setAddDialogOpen(true)}
-              sx={{ textTransform: "none" }}
+              sx={{
+                textTransform: "none",
+                width: { xs: "100%", sm: "auto" },
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+              }}
               disabled={loading}
             >
               Добавить услугу
