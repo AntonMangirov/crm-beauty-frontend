@@ -11,6 +11,8 @@ import {
   ListItem,
   ListItemText,
   Chip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import { LineChart } from "@mui/x-charts";
 import {
@@ -19,18 +21,32 @@ import {
   Star as StarIcon,
 } from "@mui/icons-material";
 import { meApi, type AnalyticsResponse, type Appointment } from "../../api/me";
-import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+  format,
+  startOfYear,
+  endOfYear,
+} from "date-fns";
 import { ru } from "date-fns/locale";
+
+type PeriodType = "days" | "weeks" | "months";
 
 export const AnalyticsPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [periodType, setPeriodType] = useState<PeriodType>("days");
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [periodType]);
 
   const loadData = async () => {
     try {
@@ -38,29 +54,68 @@ export const AnalyticsPage: React.FC = () => {
       setError(null);
 
       const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
+      let fromDate: Date;
+      let toDate: Date;
 
-      const year = monthStart.getFullYear();
-      const month = monthStart.getMonth();
-      const day = monthStart.getDate();
-
-      const utcMonthStart = new Date(
-        Date.UTC(year, month, day, 0, 0, 0, 0)
-      );
-
-      const endYear = monthEnd.getFullYear();
-      const endMonth = monthEnd.getMonth();
-      const endDay = monthEnd.getDate();
-      const utcMonthEnd = new Date(
-        Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999)
-      );
+      if (periodType === "months") {
+        // Для месячного графика загружаем данные за год
+        const yearStart = startOfYear(now);
+        const yearEnd = endOfYear(now);
+        fromDate = new Date(
+          Date.UTC(
+            yearStart.getFullYear(),
+            yearStart.getMonth(),
+            yearStart.getDate(),
+            0,
+            0,
+            0,
+            0
+          )
+        );
+        toDate = new Date(
+          Date.UTC(
+            yearEnd.getFullYear(),
+            yearEnd.getMonth(),
+            yearEnd.getDate(),
+            23,
+            59,
+            59,
+            999
+          )
+        );
+      } else {
+        // Для дневного и недельного графиков загружаем данные за текущий месяц
+        const monthStart = startOfMonth(now);
+        const monthEnd = endOfMonth(now);
+        fromDate = new Date(
+          Date.UTC(
+            monthStart.getFullYear(),
+            monthStart.getMonth(),
+            monthStart.getDate(),
+            0,
+            0,
+            0,
+            0
+          )
+        );
+        toDate = new Date(
+          Date.UTC(
+            monthEnd.getFullYear(),
+            monthEnd.getMonth(),
+            monthEnd.getDate(),
+            23,
+            59,
+            59,
+            999
+          )
+        );
+      }
 
       const [analyticsData, appointmentsData] = await Promise.all([
         meApi.getAnalytics(),
         meApi.getAppointments({
-          from: utcMonthStart.toISOString(),
-          to: utcMonthEnd.toISOString(),
+          from: fromDate.toISOString(),
+          to: toDate.toISOString(),
         }),
       ]);
 
@@ -118,7 +173,128 @@ export const AnalyticsPage: React.FC = () => {
     };
   };
 
-  const dailyData = getDailyData();
+  // Группируем записи по неделям для графика
+  const getWeeklyData = () => {
+    if (!appointments.length) return { dates: [], counts: [], revenues: [] };
+
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const weeks = eachWeekOfInterval(
+      { start: monthStart, end: monthEnd },
+      { weekStartsOn: 1 }
+    );
+
+    const weeklyStats = new Map<string, { count: number; revenue: number }>();
+
+    // Инициализируем все недели нулями
+    weeks.forEach((weekStart) => {
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      const dateKey = format(weekStart, "yyyy-MM-dd");
+      weeklyStats.set(dateKey, { count: 0, revenue: 0 });
+    });
+
+    // Подсчитываем записи и доход по неделям
+    appointments.forEach((apt) => {
+      const date = new Date(apt.startAt);
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      const dateKey = format(weekStart, "yyyy-MM-dd");
+
+      const stats = weeklyStats.get(dateKey);
+      if (stats) {
+        stats.count += 1;
+        if (apt.status === "COMPLETED" && apt.price) {
+          stats.revenue += apt.price;
+        }
+      }
+    });
+
+    const sortedWeeks = Array.from(weeklyStats.entries()).sort(
+      ([dateA], [dateB]) => dateA.localeCompare(dateB)
+    );
+
+    return {
+      dates: sortedWeeks.map(([date]) => {
+        const weekStart = new Date(date);
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        return `${format(weekStart, "d MMM", { locale: ru })} - ${format(
+          weekEnd,
+          "d MMM",
+          { locale: ru }
+        )}`;
+      }),
+      counts: sortedWeeks.map(([, stats]) => stats.count),
+      revenues: sortedWeeks.map(([, stats]) => stats.revenue),
+    };
+  };
+
+  // Группируем записи по месяцам для графика
+  const getMonthlyData = () => {
+    if (!appointments.length) return { dates: [], counts: [], revenues: [] };
+
+    const now = new Date();
+    const yearStart = startOfYear(now);
+    const yearEnd = endOfYear(now);
+    const months = eachMonthOfInterval({ start: yearStart, end: yearEnd });
+
+    const monthlyStats = new Map<string, { count: number; revenue: number }>();
+
+    // Инициализируем все месяцы нулями
+    months.forEach((month) => {
+      const dateKey = format(month, "yyyy-MM");
+      monthlyStats.set(dateKey, { count: 0, revenue: 0 });
+    });
+
+    // Подсчитываем записи и доход по месяцам
+    appointments.forEach((apt) => {
+      const date = new Date(apt.startAt);
+      const dateKey = format(date, "yyyy-MM");
+
+      const stats = monthlyStats.get(dateKey);
+      if (stats) {
+        stats.count += 1;
+        if (apt.status === "COMPLETED" && apt.price) {
+          stats.revenue += apt.price;
+        }
+      }
+    });
+
+    const sortedMonths = Array.from(monthlyStats.entries()).sort(
+      ([dateA], [dateB]) => dateA.localeCompare(dateB)
+    );
+
+    return {
+      dates: sortedMonths.map(([date]) =>
+        format(new Date(date + "-01"), "MMM yyyy", { locale: ru })
+      ),
+      counts: sortedMonths.map(([, stats]) => stats.count),
+      revenues: sortedMonths.map(([, stats]) => stats.revenue),
+    };
+  };
+
+  const getChartData = () => {
+    switch (periodType) {
+      case "days":
+        return getDailyData();
+      case "weeks":
+        return getWeeklyData();
+      case "months":
+        return getMonthlyData();
+      default:
+        return getDailyData();
+    }
+  };
+
+  const chartData = getChartData();
+
+  const handlePeriodChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newPeriod: PeriodType | null
+  ) => {
+    if (newPeriod !== null) {
+      setPeriodType(newPeriod);
+    }
+  };
 
   if (loading) {
     return (
@@ -296,29 +472,65 @@ export const AnalyticsPage: React.FC = () => {
       </Grid>
 
       <Grid container spacing={2}>
-        {/* График по дням */}
+        {/* График */}
         <Grid size={{ xs: 12, md: 8 }}>
           <Card sx={{ p: { xs: 1.5, sm: 2 }, height: "100%" }}>
-            <Typography
-              variant="h6"
+            <Box
               sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 mb: 2,
-                fontWeight: 600,
-                fontSize: { xs: "1.125rem", sm: "1.25rem" },
+                flexWrap: "wrap",
+                gap: 2,
               }}
             >
-              График по дням
-            </Typography>
-            {dailyData.dates.length > 0 ? (
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: "1.125rem", sm: "1.25rem" },
+                }}
+              >
+                {periodType === "days"
+                  ? "График по дням"
+                  : periodType === "weeks"
+                    ? "График по неделям"
+                    : "График по месяцам"}
+              </Typography>
+              <ToggleButtonGroup
+                value={periodType}
+                exclusive
+                onChange={handlePeriodChange}
+                aria-label="период графика"
+                size="small"
+              >
+                <ToggleButton value="days" aria-label="по дням">
+                  Дни
+                </ToggleButton>
+                <ToggleButton value="weeks" aria-label="по неделям">
+                  Недели
+                </ToggleButton>
+                <ToggleButton value="months" aria-label="по месяцам">
+                  Месяцы
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            {chartData.dates.length > 0 ? (
               <Box sx={{ width: "100%", height: 400, overflow: "auto" }}>
                 <LineChart
-                  width={Math.max(600, dailyData.dates.length * 50)}
+                  width={Math.max(600, chartData.dates.length * 50)}
                   height={400}
                   xAxis={[
                     {
-                      data: dailyData.dates,
+                      data: chartData.dates,
                       scaleType: "point",
-                      label: "День месяца",
+                      label:
+                        periodType === "days"
+                          ? "День месяца"
+                          : periodType === "weeks"
+                            ? "Неделя"
+                            : "Месяц",
                     },
                   ]}
                   yAxis={[
@@ -335,14 +547,14 @@ export const AnalyticsPage: React.FC = () => {
                     {
                       id: "appointments",
                       label: "Записи",
-                      data: dailyData.counts,
+                      data: chartData.counts,
                       yAxisId: "left",
                       color: "#667eea",
                     },
                     {
                       id: "revenue",
                       label: "Доход",
-                      data: dailyData.revenues,
+                      data: chartData.revenues,
                       yAxisId: "right",
                       color: "#f5576c",
                     },
@@ -364,7 +576,13 @@ export const AnalyticsPage: React.FC = () => {
                   color: "text.secondary",
                 }}
               >
-                <Typography>Нет данных за текущий месяц</Typography>
+                <Typography>
+                  {periodType === "days"
+                    ? "Нет данных за текущий месяц"
+                    : periodType === "weeks"
+                      ? "Нет данных за текущий месяц"
+                      : "Нет данных за текущий год"}
+                </Typography>
               </Box>
             )}
           </Card>

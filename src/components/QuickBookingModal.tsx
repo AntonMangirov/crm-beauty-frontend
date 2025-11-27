@@ -586,6 +586,38 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         "Не удалось создать запись";
+      const errorCode = err?.response?.data?.code;
+
+      // Логируем ошибки для разработчиков
+      if (errorCode === 'TIME_SLOT_CONFLICT' || errorMessage.includes('занято')) {
+        console.error('[DEV_ANALYTICS] invalidTimeslot:', {
+          masterSlug,
+          serviceId: selectedService.id,
+          startAt: startAtISO,
+          error: errorMessage,
+        });
+      } else if (errorCode === 'SERVICE_NOT_FOUND' || errorMessage.includes('Услуга не найдена')) {
+        console.error('[DEV_ANALYTICS] noServices:', {
+          masterSlug,
+          serviceId: selectedService.id,
+          error: errorMessage,
+        });
+      } else if (errorCode === 'VALIDATION_ERROR' || err?.response?.status === 400) {
+        console.error('[DEV_ANALYTICS] validationFailed:', {
+          masterSlug,
+          error: errorMessage,
+          errorCode,
+          formData: {
+            hasName: !!name.trim(),
+            hasContact: !!contact.trim(),
+            contactType,
+            hasService: !!selectedService,
+            hasDate: !!selectedDate,
+            hasTime: !!selectedTime,
+          },
+        });
+      }
+
       setError(errorMessage);
       showSnackbar(errorMessage, "error");
     } finally {
