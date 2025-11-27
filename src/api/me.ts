@@ -426,4 +426,39 @@ export const meApi = {
   deletePortfolioPhoto: async (photoId: string): Promise<void> => {
     await apiClient.delete(`/api/me/portfolio/photos/${photoId}`);
   },
+
+  /**
+   * PATCH /api/me/settings/password
+   * Изменить пароль
+   */
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.patch("/api/me/settings/password", data);
+    return response.data;
+  },
+
+  /**
+   * PATCH /api/me/settings/email
+   * Изменить email
+   */
+  changeEmail: async (data: {
+    newEmail: string;
+    password: string;
+  }): Promise<{ success: boolean; message: string; email: string }> => {
+    const response = await apiClient.patch("/api/me/settings/email", data);
+    return response.data;
+  },
+
+  /**
+   * PATCH /api/me/settings/phone
+   * Изменить телефон
+   */
+  changePhone: async (data: {
+    newPhone: string;
+  }): Promise<{ success: boolean; message: string; phone: string | null }> => {
+    const response = await apiClient.patch("/api/me/settings/phone", data);
+    return response.data;
+  },
 };
