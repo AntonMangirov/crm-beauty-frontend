@@ -13,6 +13,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Pagination,
 } from "@mui/material";
 import {
   LocationOn as LocationIcon,
@@ -25,6 +26,7 @@ import { ServiceCard } from "./ServiceCard";
 import { LocationMapPreview } from "./LocationMapPreview";
 import { ReviewFormDialog } from "./ReviewFormDialog";
 import { PortfolioGallery } from "./PortfolioGallery";
+import { PhotoViewer } from "./PhotoViewer";
 import type { Master } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
 import { reviewsApi, type Review } from "../api/reviews";
@@ -89,6 +91,12 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [reviewsPage, setReviewsPage] = useState(1);
+  const REVIEWS_PER_PAGE = 5;
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
+  const [viewerTitle, setViewerTitle] = useState<string>("");
+  const [viewerCurrentIndex, setViewerCurrentIndex] = useState(0);
 
   useEffect(() => {
     loadReviews();
@@ -115,6 +123,8 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
   const handleReviewSuccess = () => {
     // Перезагружаем список отзывов после успешного добавления
     loadReviews();
+    // Сбрасываем на первую страницу
+    setReviewsPage(1);
   };
 
   const normalizedPhotoUrl = normalizeImageUrl(master.photoUrl);
@@ -169,6 +179,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
               <Avatar
                 src={normalizedPhotoUrl}
                 alt={master.name}
+                onClick={() => {
+                  // Показываем только фото профиля, без портфолио
+                  if (normalizedPhotoUrl) {
+                    setViewerPhotos([normalizedPhotoUrl]);
+                    setViewerCurrentIndex(0);
+                    setViewerTitle(master.name);
+                    setPhotoViewerOpen(true);
+                  }
+                }}
                 sx={{
                   width: { xs: 64, sm: 80 },
                   height: { xs: 64, sm: 80 },
@@ -176,6 +195,11 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                   border: "2px solid",
                   borderColor: "white",
                   boxShadow: 2,
+                  cursor: normalizedPhotoUrl ? "pointer" : "default",
+                  transition: "transform 0.2s",
+                  "&:hover": normalizedPhotoUrl ? {
+                    transform: "scale(1.05)",
+                  } : {},
                 }}
               />
             ) : (
@@ -437,22 +461,44 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           {/* Описание мастера */}
           {master.description && (
             <Grid size={{ xs: 12, md: master.lat && master.lng ? 6 : 12 }}>
-              <Card sx={{ height: "100%", p: { xs: 1.5, sm: 2 } }}>
+              <Box sx={{ display: "flex", flexDirection: "column" }}>
                 <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
+                  variant="subtitle2"
+                  sx={{
+                    mb: 1,
+                    fontWeight: 600,
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                  }}
                 >
-                  {master.description}
+                  О мастере
                 </Typography>
-              </Card>
+                <Card 
+                  sx={{ 
+                    p: { xs: 1.5, sm: 2 },
+                    height: { xs: "150px", sm: "180px" },
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "auto",
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ 
+                      fontSize: { xs: "0.8125rem", sm: "0.875rem" },
+                    }}
+                  >
+                    {master.description}
+                  </Typography>
+                </Card>
+              </Box>
             </Grid>
           )}
 
           {/* Карта (превью) */}
           {master.lat && master.lng && (
             <Grid size={{ xs: 12, md: master.description ? 6 : 12 }}>
-              <Box>
+              <Box sx={{ display: "flex", flexDirection: "column" }}>
                 <Typography
                   variant="subtitle2"
                   sx={{
@@ -468,7 +514,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                   lng={master.lng}
                   address={master.address}
                   masterName={master.name}
-                  height={{ xs: 200, sm: 250 }}
+                  height={{ xs: 150, sm: 180 }}
                 />
               </Box>
             </Grid>
@@ -562,70 +608,85 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
             </Typography>
           </Card>
         ) : (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {reviews.map((review) => (
-              <Card key={review.id} sx={{ p: { xs: 1.5, sm: 2 } }}>
-                <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
-                  <Avatar
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      mr: 1.5,
-                      bgcolor: "primary.main",
-                      fontSize: "0.875rem",
-                    }}
-                  >
-                    {review.authorName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)}
-                  </Avatar>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 0.5,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                        {review.authorName}
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <StarIcon
-                            key={star}
-                            sx={{
-                              fontSize: 16,
-                              color: star <= review.rating ? "#FFD700" : "grey.300",
-                            }}
-                          />
-                        ))}
+          <>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              {reviews
+                .slice((reviewsPage - 1) * REVIEWS_PER_PAGE, reviewsPage * REVIEWS_PER_PAGE)
+                .map((review) => (
+                  <Card key={review.id} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                    <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
+                      <Avatar
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          mr: 1.5,
+                          bgcolor: "primary.main",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {review.authorName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </Avatar>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 0.5,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {review.authorName}
+                          </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <StarIcon
+                                key={star}
+                                sx={{
+                                  fontSize: 16,
+                                  color: star <= review.rating ? "#FFD700" : "grey.300",
+                                }}
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
+                        >
+                          {review.text}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 0.5, display: "block" }}
+                        >
+                          {formatRelativeTime(review.createdAt)}
+                        </Typography>
                       </Box>
                     </Box>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
-                    >
-                      {review.text}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 0.5, display: "block" }}
-                    >
-                      {formatRelativeTime(review.createdAt)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Card>
-            ))}
-          </Box>
+                  </Card>
+                ))}
+            </Box>
+            {reviews.length > REVIEWS_PER_PAGE && (
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+                <Pagination
+                  count={Math.ceil(reviews.length / REVIEWS_PER_PAGE)}
+                  page={reviewsPage}
+                  onChange={(_, value) => setReviewsPage(value)}
+                  color="primary"
+                  size="large"
+                />
+              </Box>
+            )}
+          </>
         )}
       </Box>
 
@@ -679,6 +740,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
         onClose={() => setReviewDialogOpen(false)}
         masterSlug={masterSlug}
         onSuccess={handleReviewSuccess}
+      />
+
+      {/* Просмотрщик фото */}
+      <PhotoViewer
+        open={photoViewerOpen}
+        onClose={() => setPhotoViewerOpen(false)}
+        photos={viewerPhotos}
+        currentIndex={viewerCurrentIndex}
+        title={viewerTitle}
       />
     </Container>
   );

@@ -20,6 +20,10 @@ import {
   useTheme,
   AppBar,
   Toolbar,
+  ImageList,
+  ImageListItem,
+  ImageListItemBar,
+  Divider,
 } from "@mui/material";
 import { Menu as MenuIcon } from "@mui/icons-material";
 import {
@@ -29,6 +33,8 @@ import {
   Star as StarIcon,
   CloudUpload as CloudUploadIcon,
   Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
+  Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { Sidebar } from "../../components/Sidebar";
 import { LocationMapPreview } from "../../components/LocationMapPreview";
@@ -42,6 +48,7 @@ import {
   meApi,
   type MeResponse,
   type UpdateProfileRequest,
+  type PortfolioPhoto,
 } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { normalizeImageUrl } from "../../utils/imageUrl";
@@ -57,6 +64,8 @@ export const ProfilePage: React.FC = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
+  const [profilePhotos, setProfilePhotos] = useState<PortfolioPhoto[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -86,7 +95,43 @@ export const ProfilePage: React.FC = () => {
         photoUrl: master.photoUrl,
       });
       setPhotoPreview(master.photoUrl);
+      loadProfilePhotos();
       setEditDialogOpen(true);
+    }
+  };
+
+  const loadProfilePhotos = async () => {
+    if (!master) return;
+    
+    try {
+      setLoadingPhotos(true);
+      // Загружаем фото профиля из localStorage
+      const storedPhotos = localStorage.getItem(`profilePhotos_${master.id}`);
+      let photos: PortfolioPhoto[] = [];
+      
+      if (storedPhotos) {
+        try {
+          photos = JSON.parse(storedPhotos);
+        } catch (e) {
+          console.error("Ошибка парсинга сохраненных фото:", e);
+        }
+      }
+      
+      // Добавляем текущее фото профиля в начало списка, если его нет
+      if (master.photoUrl && !photos.find(p => p.url === master.photoUrl)) {
+        photos = [{
+          id: 'current',
+          url: master.photoUrl,
+          description: 'Текущее фото профиля',
+          createdAt: new Date().toISOString(),
+        } as PortfolioPhoto, ...photos];
+      }
+      
+      setProfilePhotos(photos);
+    } catch (err) {
+      console.error("Ошибка загрузки фото профиля:", err);
+    } finally {
+      setLoadingPhotos(false);
     }
   };
 
@@ -108,26 +153,81 @@ export const ProfilePage: React.FC = () => {
       return;
     }
 
-    // Показываем превью
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPhotoPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-
-    // Загружаем фото
+    // Загружаем фото через uploadPortfolioPhoto, чтобы не заменять основное фото
     try {
       setUploadingPhoto(true);
-      const updatedMaster = await meApi.uploadPhoto(file);
-      setMaster(updatedMaster);
-      setEditFormData({ ...editFormData, photoUrl: updatedMaster.photoUrl });
-      showSnackbar("Фото успешно загружено", "success");
+      const response = await meApi.uploadPortfolioPhoto(file);
+      const newPhoto = response.photo;
+      
+      // Добавляем новое фото в список фото профиля
+      const updatedPhotos = [newPhoto, ...profilePhotos];
+      
+      // Сохраняем в localStorage
+      if (master?.id) {
+        localStorage.setItem(`profilePhotos_${master.id}`, JSON.stringify(updatedPhotos));
+      }
+      
+      setProfilePhotos(updatedPhotos);
+      showSnackbar("Фото успешно загружено. Выберите его как основное, если нужно.", "success");
     } catch (err) {
       console.error("Ошибка загрузки фото:", err);
       showSnackbar("Не удалось загрузить фото", "error");
-      setPhotoPreview(master?.photoUrl || null);
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleSetMainPhoto = async (photoUrl: string) => {
+    try {
+      // Обновляем основное фото профиля
+      await meApi.updateProfile({ photoUrl });
+      
+      // Обновляем данные мастера
+      const updatedMaster = await meApi.getMe();
+      setMaster(updatedMaster);
+      setEditFormData({ ...editFormData, photoUrl });
+      setPhotoPreview(photoUrl);
+      
+      // Обновляем список фото
+      await loadProfilePhotos();
+      
+      showSnackbar("Основное фото обновлено", "success");
+    } catch (err) {
+      console.error("Ошибка обновления основного фото:", err);
+      showSnackbar("Не удалось обновить основное фото", "error");
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm("Удалить это фото?")) return;
+
+    try {
+      const deletedPhoto = profilePhotos.find(p => p.id === photoId);
+      const isMainPhoto = master?.photoUrl && deletedPhoto?.url === master.photoUrl;
+      
+      // Удаляем фото из списка
+      const updatedPhotos = profilePhotos.filter(p => p.id !== photoId);
+      
+      // Сохраняем в localStorage
+      if (master?.id) {
+        localStorage.setItem(`profilePhotos_${master.id}`, JSON.stringify(updatedPhotos));
+      }
+      
+      setProfilePhotos(updatedPhotos);
+      
+      // Если удалили основное фото, нужно обновить профиль
+      if (isMainPhoto) {
+        await meApi.updateProfile({ photoUrl: null });
+        const updatedMaster = await meApi.getMe();
+        setMaster(updatedMaster);
+        setEditFormData({ ...editFormData, photoUrl: null });
+        setPhotoPreview(null);
+      }
+      
+      showSnackbar("Фото удалено", "success");
+    } catch (err) {
+      console.error("Ошибка удаления фото:", err);
+      showSnackbar("Не удалось удалить фото", "error");
     }
   };
 
@@ -486,6 +586,9 @@ export const ProfilePage: React.FC = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Загрузка фото */}
             <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+                Фото профиля
+              </Typography>
               <Box
                 sx={{
                   display: "flex",
@@ -500,6 +603,8 @@ export const ProfilePage: React.FC = () => {
                       ? photoPreview.startsWith("data:")
                         ? photoPreview
                         : normalizeImageUrl(photoPreview)
+                      : master?.photoUrl
+                      ? normalizeImageUrl(master.photoUrl)
                       : undefined
                   }
                   sx={{
@@ -510,7 +615,7 @@ export const ProfilePage: React.FC = () => {
                     borderColor: "divider",
                   }}
                 >
-                  {master.name
+                  {master?.name
                     .split(" ")
                     .map((n) => n[0])
                     .join("")}
@@ -531,7 +636,7 @@ export const ProfilePage: React.FC = () => {
                     disabled={uploadingPhoto}
                     sx={{ textTransform: "none" }}
                   >
-                    {uploadingPhoto ? "Загрузка..." : "Загрузить фото"}
+                    {uploadingPhoto ? "Загрузка..." : "Добавить фото"}
                   </Button>
                 </label>
                 <Typography
@@ -539,9 +644,136 @@ export const ProfilePage: React.FC = () => {
                   color="text.secondary"
                   sx={{ mt: 1 }}
                 >
-                  Максимальный размер: 5MB
+                  Максимальный размер: 5MB. Фото не заменяет существующие.
                 </Typography>
               </Box>
+
+              {/* Список всех фото профиля */}
+              {loadingPhotos ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : profilePhotos.length > 0 ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                    Все фото профиля ({profilePhotos.length})
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                    Выберите основное фото, нажав на зеленую галочку
+                  </Typography>
+                  <ImageList cols={3} gap={8} sx={{ mb: 0 }}>
+                    {profilePhotos.map((photo) => {
+                      const isMain = master?.photoUrl === photo.url;
+                      return (
+                        <ImageListItem
+                          key={photo.id}
+                          sx={{
+                            position: "relative",
+                            cursor: "pointer",
+                            "&:hover": {
+                              opacity: 0.9,
+                            },
+                          }}
+                        >
+                          <img
+                            src={normalizeImageUrl(photo.url)}
+                            alt={photo.description || "Фото профиля"}
+                            loading="lazy"
+                            style={{
+                              width: "100%",
+                              height: "auto",
+                              borderRadius: "8px",
+                              display: "block",
+                            }}
+                          />
+                          <ImageListItemBar
+                            title={
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                {isMain && (
+                                  <CheckCircleIcon sx={{ fontSize: 14, color: "success.main" }} />
+                                )}
+                                <Typography variant="caption" sx={{ fontWeight: isMain ? 600 : 400 }}>
+                                  {isMain ? "Основное" : "Нажмите галочку"}
+                                </Typography>
+                              </Box>
+                            }
+                            actionIcon={
+                              <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                                {!isMain ? (
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSetMainPhoto(photo.url);
+                                    }}
+                                    sx={{ 
+                                      color: "white", 
+                                      bgcolor: "rgba(76, 175, 80, 0.9)",
+                                      "&:hover": {
+                                        bgcolor: "rgba(76, 175, 80, 1)",
+                                      }
+                                    }}
+                                    title="Сделать основным фото"
+                                  >
+                                    <CheckCircleIcon fontSize="small" />
+                                  </IconButton>
+                                ) : (
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.5,
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      bgcolor: "rgba(76, 175, 80, 0.9)",
+                                    }}
+                                  >
+                                    <CheckCircleIcon sx={{ fontSize: 14, color: "white" }} />
+                                    <Typography variant="caption" sx={{ color: "white", fontWeight: 600, fontSize: "0.7rem" }}>
+                                      Основное
+                                    </Typography>
+                                  </Box>
+                                )}
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeletePhoto(photo.id);
+                                  }}
+                                  sx={{ 
+                                    color: "white", 
+                                    bgcolor: "rgba(211, 47, 47, 0.9)",
+                                    "&:hover": {
+                                      bgcolor: "rgba(211, 47, 47, 1)",
+                                    }
+                                  }}
+                                  title="Удалить фото"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            }
+                            sx={{
+                              "& .MuiImageListItemBar-title": {
+                                fontSize: "0.7rem",
+                              },
+                              "& .MuiImageListItemBar-actionIcon": {
+                                marginRight: "4px",
+                              },
+                            }}
+                          />
+                        </ImageListItem>
+                      );
+                    })}
+                  </ImageList>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: "center" }}>
+                  Нет загруженных фото. Загрузите первое фото выше.
+                </Typography>
+              )}
+              <Divider sx={{ my: 2 }} />
             </Grid>
 
             <Grid size={{ xs: 12 }}>

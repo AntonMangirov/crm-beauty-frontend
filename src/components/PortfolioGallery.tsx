@@ -8,8 +8,9 @@ import {
   ImageList,
   ImageListItem,
   ImageListItemBar,
+  Button,
 } from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
+import { Close as CloseIcon, ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 import type { PortfolioPhoto } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
 
@@ -21,6 +22,8 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
   photos,
 }) => {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_PHOTOS_COUNT = 3; // Показываем первые 3 фото
 
   const handlePhotoClick = (url: string) => {
     setSelectedPhoto(url);
@@ -33,6 +36,9 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
   if (!photos || photos.length === 0) {
     return null;
   }
+
+  const displayedPhotos = showAll ? photos : photos.slice(0, INITIAL_PHOTOS_COUNT);
+  const hasMorePhotos = photos.length > INITIAL_PHOTOS_COUNT;
 
   return (
     <>
@@ -54,6 +60,8 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
           gap={8}
           sx={{
             mb: 0,
+            maxHeight: showAll ? "none" : "300px",
+            overflow: "hidden",
             "& .MuiImageListItem-root": {
               cursor: "pointer",
               transition: "transform 0.2s",
@@ -63,7 +71,7 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
             },
           }}
         >
-          {photos.map((photo) => (
+          {displayedPhotos.map((photo) => (
             <ImageListItem key={photo.id} onClick={() => handlePhotoClick(photo.url)}>
               <img
                 src={normalizeImageUrl(photo.url)}
@@ -90,6 +98,18 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
             </ImageListItem>
           ))}
         </ImageList>
+        {hasMorePhotos && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setShowAll(!showAll)}
+              endIcon={<ExpandMoreIcon sx={{ transform: showAll ? "rotate(180deg)" : "none", transition: "transform 0.3s" }} />}
+              sx={{ textTransform: "none" }}
+            >
+              {showAll ? "Скрыть" : `Показать все (${photos.length})`}
+            </Button>
+          </Box>
+        )}
       </Box>
 
       {/* Диалог для просмотра фото в полном размере */}
