@@ -16,12 +16,14 @@ import {
   IconButton,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { Link } from "@mui/material";
 import { apiClient } from "../api";
 import { meApi } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { useNavigate } from "react-router-dom";
 import { getRecaptchaToken } from "../utils/recaptcha";
 import { loadRecaptchaScript } from "../utils/loadRecaptcha";
+import { PasswordResetForm } from "./PasswordResetForm";
 
 interface AuthFormProps {
   defaultTab?: "login" | "register";
@@ -65,6 +67,7 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showPasswordReset, setShowPasswordReset] = useState(false);
     const { showSnackbar } = useSnackbar();
     const navigate = useNavigate();
 
@@ -458,6 +461,19 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
       }
     };
 
+    if (showPasswordReset) {
+      return (
+        <PasswordResetForm
+          onSuccess={() => {
+            setShowPasswordReset(false);
+            setActiveTab("login");
+          }}
+          onCancel={() => setShowPasswordReset(false)}
+          mode={mode}
+        />
+      );
+    }
+
     return (
       <>
         {mode === "page" && (
@@ -646,6 +662,20 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
                 ),
               }}
             />
+          )}
+
+          {activeTab === "login" && (
+            <Box sx={{ mb: 2, textAlign: "right" }}>
+              <Link
+                component="button"
+                type="button"
+                variant="body2"
+                onClick={() => setShowPasswordReset(true)}
+                sx={{ textDecoration: "none" }}
+              >
+                Забыли пароль?
+              </Link>
+            </Box>
           )}
 
           {showButtons && (
