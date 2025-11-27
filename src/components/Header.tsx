@@ -89,6 +89,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleMenuClose = () => {
+    // Убираем фокус перед закрытием меню, чтобы избежать предупреждения о доступности
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setAnchorEl(null);
   };
 
@@ -287,6 +291,10 @@ export const Header: React.FC<HeaderProps> = ({
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
+        disableAutoFocusItem
+        MenuListProps={{
+          onMouseLeave: handleMenuClose,
+        }}
         anchorOrigin={{
           vertical: "bottom",
           horizontal: "right",
