@@ -52,24 +52,44 @@ const formatRelativeTime = (dateString: string): string => {
   if (diffSeconds < 60) {
     return "только что";
   } else if (diffMinutes < 60) {
-    return `${diffMinutes} ${getPlural(diffMinutes, "минуту", "минуты", "минут")} назад`;
+    return `${diffMinutes} ${getPlural(
+      diffMinutes,
+      "минуту",
+      "минуты",
+      "минут"
+    )} назад`;
   } else if (diffHours < 24) {
     return `${diffHours} ${getPlural(diffHours, "час", "часа", "часов")} назад`;
   } else if (diffDays < 7) {
     return `${diffDays} ${getPlural(diffDays, "день", "дня", "дней")} назад`;
   } else if (diffWeeks < 4) {
-    return `${diffWeeks} ${getPlural(diffWeeks, "неделю", "недели", "недель")} назад`;
+    return `${diffWeeks} ${getPlural(
+      diffWeeks,
+      "неделю",
+      "недели",
+      "недель"
+    )} назад`;
   } else if (diffMonths < 12) {
-    return `${diffMonths} ${getPlural(diffMonths, "месяц", "месяца", "месяцев")} назад`;
+    return `${diffMonths} ${getPlural(
+      diffMonths,
+      "месяц",
+      "месяца",
+      "месяцев"
+    )} назад`;
   } else {
     return `${diffYears} ${getPlural(diffYears, "год", "года", "лет")} назад`;
   }
 };
 
-const getPlural = (count: number, one: string, few: string, many: string): string => {
+const getPlural = (
+  count: number,
+  one: string,
+  few: string,
+  many: string
+): string => {
   const mod10 = count % 10;
   const mod100 = count % 100;
-  
+
   if (mod100 >= 11 && mod100 <= 19) {
     return many;
   }
@@ -197,9 +217,11 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                   boxShadow: 2,
                   cursor: normalizedPhotoUrl ? "pointer" : "default",
                   transition: "transform 0.2s",
-                  "&:hover": normalizedPhotoUrl ? {
-                    transform: "scale(1.05)",
-                  } : {},
+                  "&:hover": normalizedPhotoUrl
+                    ? {
+                        transform: "scale(1.05)",
+                      }
+                    : {},
                 }}
               />
             ) : (
@@ -472,8 +494,8 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                 >
                   О мастере
                 </Typography>
-                <Card 
-                  sx={{ 
+                <Card
+                  sx={{
                     p: { xs: 1.5, sm: 2 },
                     height: { xs: "150px", sm: "180px" },
                     display: "flex",
@@ -484,7 +506,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ 
+                    sx={{
                       fontSize: { xs: "0.8125rem", sm: "0.875rem" },
                     }}
                   >
@@ -611,10 +633,15 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
           <>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {reviews
-                .slice((reviewsPage - 1) * REVIEWS_PER_PAGE, reviewsPage * REVIEWS_PER_PAGE)
+                .slice(
+                  (reviewsPage - 1) * REVIEWS_PER_PAGE,
+                  reviewsPage * REVIEWS_PER_PAGE
+                )
                 .map((review) => (
                   <Card key={review.id} sx={{ p: { xs: 1.5, sm: 2 } }}>
-                    <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}
+                    >
                       <Avatar
                         sx={{
                           width: 40,
@@ -641,16 +668,28 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
                             flexWrap: "wrap",
                           }}
                         >
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600 }}
+                          >
                             {review.authorName}
                           </Typography>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.25,
+                            }}
+                          >
                             {[1, 2, 3, 4, 5].map((star) => (
                               <StarIcon
                                 key={star}
                                 sx={{
                                   fontSize: 16,
-                                  color: star <= review.rating ? "#FFD700" : "grey.300",
+                                  color:
+                                    star <= review.rating
+                                      ? "#FFD700"
+                                      : "grey.300",
                                 }}
                               />
                             ))}

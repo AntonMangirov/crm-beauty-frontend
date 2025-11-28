@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Container,
@@ -10,10 +10,6 @@ import {
   Alert,
   InputAdornment,
   IconButton,
-  Divider,
-  ImageList,
-  ImageListItem,
-  ImageListItemBar,
 } from "@mui/material";
 import {
   Visibility,
@@ -21,14 +17,9 @@ import {
   Email as EmailIcon,
   Phone as PhoneIcon,
   Lock as LockIcon,
-  PhotoCamera as PhotoCameraIcon,
-  CheckCircle as CheckCircleIcon,
-  Delete as DeleteIcon,
 } from "@mui/icons-material";
-import { meApi, type MeResponse, type PortfolioPhoto } from "../../api/me";
+import { meApi, type MeResponse } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
-import { PhotoViewer } from "../../components/PhotoViewer";
-import { normalizeImageUrl } from "../../utils/imageUrl";
 
 export const SettingsPage: React.FC = () => {
   const [master, setMaster] = useState<MeResponse | null>(null);
@@ -56,28 +47,9 @@ export const SettingsPage: React.FC = () => {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [changingPhone, setChangingPhone] = useState(false);
 
-  // Состояния для управления фото профиля
-  const [profilePhotos, setProfilePhotos] = useState<PortfolioPhoto[]>([]);
-  const [loadingPhotos, setLoadingPhotos] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
-  const [viewerPhotos, setViewerPhotos] = useState<string[]>([]);
-  const [viewerTitle, setViewerTitle] = useState<string>("");
-  const [viewerCurrentIndex, setViewerCurrentIndex] = useState(0);
-
   const { showSnackbar } = useSnackbar();
 
-  useEffect(() => {
-    loadMaster();
-  }, []);
-
-  useEffect(() => {
-    if (master) {
-      loadProfilePhotos();
-    }
-  }, [master]);
-
-  const loadMaster = async () => {
+  const loadMaster = useCallback(async () => {
     try {
       setLoading(true);
       const masterData = await meApi.getMe();
@@ -90,149 +62,15 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showSnackbar]);
 
-  const loadProfilePhotos = async () => {
-    if (!master) return;
-    
-    try {
-      setLoadingPhotos(true);
-      // Загружаем фото профиля из localStorage или используем только текущее фото
-      // В будущем можно добавить отдельный API endpoint для фото профиля
-      const storedPhotos = localStorage.getItem(`profilePhotos_${master.id}`);
-      let photos: PortfolioPhoto[] = [];
-      
-      if (storedPhotos) {
-        try {
-          photos = JSON.parse(storedPhotos);
-        } catch (e) {
-          console.error("Ошибка парсинга сохраненных фото:", e);
-        }
-      }
-      
-      // Добавляем текущее фото профиля в начало списка, если его нет
-      if (master.photoUrl && !photos.find(p => p.url === master.photoUrl)) {
-        photos = [{
-          id: 'current',
-          url: master.photoUrl,
-          description: 'Текущее фото профиля',
-          createdAt: new Date().toISOString(),
-        } as PortfolioPhoto, ...photos];
-      }
-      
-      setProfilePhotos(photos);
-    } catch (err) {
-      console.error("Ошибка загрузки фото профиля:", err);
-    } finally {
-      setLoadingPhotos(false);
-    }
-  };
-
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      showSnackbar("Выберите изображение", "error");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showSnackbar("Размер файла не должен превышать 5MB", "error");
-      return;
-    }
-
-    try {
-      setUploadingPhoto(true);
-      // Загружаем фото через uploadPortfolioPhoto, чтобы не заменять основное фото
-      const response = await meApi.uploadPortfolioPhoto(file);
-      const newPhoto = response.photo;
-      
-      // Добавляем новое фото в список фото профиля
-      const updatedPhotos = [newPhoto, ...profilePhotos];
-      
-      // Сохраняем в localStorage
-      if (master?.id) {
-        localStorage.setItem(`profilePhotos_${master.id}`, JSON.stringify(updatedPhotos));
-      }
-      
-      setProfilePhotos(updatedPhotos);
-      showSnackbar("Фото успешно загружено. Выберите его как основное, если нужно.", "success");
-    } catch (err) {
-      console.error("Ошибка загрузки фото:", err);
-      showSnackbar("Не удалось загрузить фото", "error");
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  const handleSetMainPhoto = async (photoUrl: string) => {
-    try {
-      // Обновляем основное фото профиля
-      await meApi.updateProfile({ photoUrl });
-      
-      // Обновляем список фото, чтобы отметить новое основное
-      const updatedPhotos = profilePhotos.map(p => ({
-        ...p,
-        // Обновляем id 'current' для нового основного фото
-      }));
-      
-      // Обновляем localStorage
-      if (master?.id) {
-        localStorage.setItem(`profilePhotos_${master.id}`, JSON.stringify(updatedPhotos));
-      }
-      
-      await loadMaster();
-      await loadProfilePhotos(); // Перезагружаем список фото
-      showSnackbar("Основное фото обновлено", "success");
-    } catch (err) {
-      console.error("Ошибка обновления основного фото:", err);
-      showSnackbar("Не удалось обновить основное фото", "error");
-    }
-  };
-
-  const handleDeletePhoto = async (photoId: string) => {
-    if (!confirm("Удалить это фото?")) return;
-
-    try {
-      const deletedPhoto = profilePhotos.find(p => p.id === photoId);
-      const isMainPhoto = master?.photoUrl && deletedPhoto?.url === master.photoUrl;
-      
-      // Удаляем фото из списка (фото профиля хранятся в localStorage)
-      const updatedPhotos = profilePhotos.filter(p => p.id !== photoId);
-      
-      // Сохраняем в localStorage
-      if (master?.id) {
-        localStorage.setItem(`profilePhotos_${master.id}`, JSON.stringify(updatedPhotos));
-      }
-      
-      setProfilePhotos(updatedPhotos);
-      
-      // Если удалили основное фото, нужно обновить профиль
-      if (isMainPhoto) {
-        await meApi.updateProfile({ photoUrl: null });
-        await loadMaster();
-      }
-      
-      showSnackbar("Фото удалено", "success");
-    } catch (err) {
-      console.error("Ошибка удаления фото:", err);
-      showSnackbar("Не удалось удалить фото", "error");
-    }
-  };
+  useEffect(() => {
+    loadMaster();
+  }, [loadMaster]);
 
   const validatePhone = (phone: string): boolean => {
     const cleaned = phone.replace(/[^\d+]/g, "");
     return cleaned.startsWith("+7") && cleaned.length === 12;
-  };
-
-  const formatPhoneDisplay = (phone: string): string => {
-    const cleaned = phone.replace(/[^\d+]/g, "");
-    if (cleaned.startsWith("+7") && cleaned.length === 12) {
-      const digits = cleaned.slice(2);
-      return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8)}`;
-    }
-    return phone;
   };
 
   const handlePhoneChange = (value: string) => {
@@ -296,10 +134,12 @@ export const SettingsPage: React.FC = () => {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.error ||
         "Не удалось изменить пароль";
       setPasswordError(errorMessage);
       showSnackbar(errorMessage, "error");
@@ -335,10 +175,12 @@ export const SettingsPage: React.FC = () => {
       showSnackbar("Email успешно изменен", "success");
       setMaster({ ...master!, email: response.email });
       setEmailPassword("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.error ||
         "Не удалось изменить email";
       setEmailError(errorMessage);
       showSnackbar(errorMessage, "error");
@@ -367,10 +209,12 @@ export const SettingsPage: React.FC = () => {
       });
       showSnackbar("Телефон успешно изменен", "success");
       setMaster({ ...master!, phone: response.phone });
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string } } })
+          ?.response?.data?.error ||
         "Не удалось изменить телефон";
       setPhoneError(errorMessage);
       showSnackbar(errorMessage, "error");
@@ -442,7 +286,9 @@ export const SettingsPage: React.FC = () => {
                   <InputAdornment position="end">
                     <IconButton
                       size="small"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
                       edge="end"
                     >
                       {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
@@ -586,172 +432,6 @@ export const SettingsPage: React.FC = () => {
         </Grid>
       </Card>
 
-      {/* Управление фото профиля */}
-      <Card sx={{ p: { xs: 1.5, sm: 2 }, mb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-          <PhotoCameraIcon sx={{ mr: 1, color: "primary.main", fontSize: 20 }} />
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 600,
-              fontSize: { xs: "1rem", sm: "1.125rem" },
-            }}
-          >
-            Фото профиля
-          </Typography>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Загрузите несколько фото и выберите основное, которое будет отображаться в вашем профиле
-        </Typography>
-
-        {/* Загрузка нового фото */}
-        <Box sx={{ mb: 2 }}>
-          <input
-            accept="image/*"
-            style={{ display: "none" }}
-            id="photo-upload"
-            type="file"
-            onChange={handlePhotoUpload}
-            disabled={uploadingPhoto}
-          />
-          <label htmlFor="photo-upload">
-            <Button
-              variant="outlined"
-              component="span"
-              disabled={uploadingPhoto}
-              startIcon={<PhotoCameraIcon />}
-              size="small"
-            >
-              {uploadingPhoto ? "Загрузка..." : "Загрузить фото"}
-            </Button>
-          </label>
-        </Box>
-
-        {/* Список фото */}
-        {loadingPhotos ? (
-          <Typography variant="body2" color="text.secondary">
-            Загрузка...
-          </Typography>
-        ) : profilePhotos.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            Нет загруженных фото
-          </Typography>
-        ) : (
-          <ImageList cols={3} gap={8} sx={{ mb: 0 }}>
-            {profilePhotos.map((photo) => {
-              const isMain = master?.photoUrl === photo.url;
-              return (
-                <ImageListItem
-                  key={photo.id}
-                  sx={{
-                    position: "relative",
-                    cursor: "pointer",
-                    "&:hover": {
-                      opacity: 0.9,
-                    },
-                  }}
-                  onClick={() => {
-                    const allPhotos = profilePhotos.map(p => p.url);
-                    const currentIndex = profilePhotos.findIndex(p => p.id === photo.id);
-                    setViewerPhotos(allPhotos);
-                    setViewerCurrentIndex(Math.max(0, currentIndex));
-                    setViewerTitle("Фото профиля");
-                    setPhotoViewerOpen(true);
-                  }}
-                >
-                  <img
-                    src={normalizeImageUrl(photo.url)}
-                    alt={photo.description || "Фото профиля"}
-                    loading="lazy"
-                    style={{
-                      width: "100%",
-                      height: "auto",
-                      borderRadius: "8px",
-                      display: "block",
-                    }}
-                  />
-                  <ImageListItemBar
-                    title={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        {isMain && (
-                          <CheckCircleIcon sx={{ fontSize: 16, color: "success.main" }} />
-                        )}
-                        <Typography variant="caption" sx={{ fontWeight: isMain ? 600 : 400 }}>
-                          {isMain ? "Основное фото" : "Нажмите галочку, чтобы сделать основным"}
-                        </Typography>
-                      </Box>
-                    }
-                    actionIcon={
-                      <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-                        {!isMain ? (
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSetMainPhoto(photo.url);
-                            }}
-                            sx={{ 
-                              color: "white", 
-                              bgcolor: "rgba(76, 175, 80, 0.9)",
-                              "&:hover": {
-                                bgcolor: "rgba(76, 175, 80, 1)",
-                              }
-                            }}
-                            title="Сделать основным фото"
-                          >
-                            <CheckCircleIcon fontSize="small" />
-                          </IconButton>
-                        ) : (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 0.5,
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1,
-                              bgcolor: "rgba(76, 175, 80, 0.9)",
-                            }}
-                          >
-                            <CheckCircleIcon sx={{ fontSize: 16, color: "white" }} />
-                            <Typography variant="caption" sx={{ color: "white", fontWeight: 600, fontSize: "0.7rem" }}>
-                              Основное
-                            </Typography>
-                          </Box>
-                        )}
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeletePhoto(photo.id);
-                          }}
-                          sx={{ 
-                            color: "white", 
-                            bgcolor: "rgba(211, 47, 47, 0.9)",
-                            "&:hover": {
-                              bgcolor: "rgba(211, 47, 47, 1)",
-                            }
-                          }}
-                          title="Удалить фото"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    }
-                    sx={{
-                      "& .MuiImageListItemBar-title": {
-                        fontSize: "0.75rem",
-                      },
-                    }}
-                  />
-                </ImageListItem>
-              );
-            })}
-          </ImageList>
-        )}
-      </Card>
-
       {/* Изменение телефона */}
       <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
@@ -798,18 +478,8 @@ export const SettingsPage: React.FC = () => {
           </Grid>
         </Grid>
       </Card>
-
-      {/* Просмотрщик фото */}
-      <PhotoViewer
-        open={photoViewerOpen}
-        onClose={() => setPhotoViewerOpen(false)}
-        photos={viewerPhotos}
-        currentIndex={viewerCurrentIndex}
-        title={viewerTitle}
-      />
     </Container>
   );
 };
 
 export default SettingsPage;
-

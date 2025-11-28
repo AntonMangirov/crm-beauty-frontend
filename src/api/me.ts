@@ -461,4 +461,54 @@ export const meApi = {
     const response = await apiClient.patch("/api/me/settings/phone", data);
     return response.data;
   },
+
+  /**
+   * GET /api/me/schedule
+   * Получить расписание мастера
+   */
+  getSchedule: async (): Promise<{
+    success: boolean;
+    message: string;
+    schedule: {
+      workSchedule: Array<{
+        dayOfWeek: number;
+        intervals: Array<{ from: string; to: string }>;
+      }> | null;
+      breaks: Array<{ from: string; to: string; reason?: string }> | null;
+      defaultBufferMinutes: number | null;
+      slotStepMinutes: number | null;
+    };
+  }> => {
+    const response = await apiClient.get("/api/me/schedule");
+    return response.data;
+  },
+
+  /**
+   * PUT /api/me/schedule
+   * Обновить расписание мастера
+   */
+  updateSchedule: async (data: {
+    workSchedule?: Array<{
+      dayOfWeek: number;
+      intervals: Array<{ from: string; to: string }>;
+    }>;
+    breaks?: Array<{ from: string; to: string; reason?: string }>;
+    defaultBufferMinutes?: number;
+    slotStepMinutes?: 5 | 10 | 15;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    schedule: {
+      workSchedule: Array<{
+        dayOfWeek: number;
+        intervals: Array<{ from: string; to: string }>;
+      }> | null;
+      breaks: Array<{ from: string; to: string; reason?: string }> | null;
+      defaultBufferMinutes: number | null;
+      slotStepMinutes: number | null;
+    };
+  }> => {
+    const response = await apiClient.put("/api/me/schedule", data);
+    return response.data;
+  },
 };

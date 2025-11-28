@@ -9,8 +9,6 @@ import {
   Menu,
   MenuItem,
   Avatar,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -31,8 +29,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [master, setMaster] = useState<MeResponse | null>(null);
@@ -176,7 +172,9 @@ export const Header: React.FC<HeaderProps> = ({
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center" }}>
+        <Box
+          sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center" }}
+        >
           <Button
             color="inherit"
             onClick={() => navigate("/dashboard")}
@@ -292,9 +290,6 @@ export const Header: React.FC<HeaderProps> = ({
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
         disableAutoFocusItem
-        MenuListProps={{
-          onMouseLeave: handleMenuClose,
-        }}
         anchorOrigin={{
           vertical: "bottom",
           horizontal: "right",

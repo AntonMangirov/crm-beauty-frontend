@@ -21,6 +21,7 @@ import {
   PhotoLibrary as PhotoLibraryIcon,
   Analytics as AnalyticsIcon,
   Settings as SettingsIcon,
+  AccessTime as ScheduleIcon,
 } from "@mui/icons-material";
 
 const drawerWidth = 240;
@@ -43,6 +44,7 @@ const menuItems: MenuItem[] = [
   { label: "Клиенты", icon: <PeopleIcon />, path: "/master/clients" },
   { label: "Портфолио", icon: <PhotoLibraryIcon />, path: "/master/portfolio" },
   { label: "Аналитика", icon: <AnalyticsIcon />, path: "/master/analytics" },
+  { label: "Расписание", icon: <ScheduleIcon />, path: "/master/schedule" },
   { label: "Настройки", icon: <SettingsIcon />, path: "/master/settings" },
 ];
 

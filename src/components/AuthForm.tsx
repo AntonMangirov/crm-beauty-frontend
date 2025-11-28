@@ -15,9 +15,9 @@ import {
   InputAdornment,
   IconButton,
   Box,
+  Link,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { Link } from "@mui/material";
 import { apiClient } from "../api";
 import { meApi } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
