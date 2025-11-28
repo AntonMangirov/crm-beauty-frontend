@@ -10,10 +10,12 @@ import { Save as SaveIcon } from "@mui/icons-material";
 import { meApi } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { DayScheduleCard } from "../../components/ScheduleEditor/DayScheduleCard";
+import { BreaksEditor } from "../../components/ScheduleEditor/BreaksEditor";
 import type {
   MasterSchedule,
   UpdateScheduleRequest,
   DaySchedule,
+  Break,
 } from "../../types/schedule";
 
 export const SchedulePage: React.FC = () => {
@@ -80,6 +82,15 @@ export const SchedulePage: React.FC = () => {
     return (
       schedule.workSchedule.find((day) => day.dayOfWeek === dayOfWeek) || null
     );
+  };
+
+  const handleBreaksChange = (newBreaks: Break[] | null) => {
+    if (!schedule) return;
+
+    setSchedule({
+      ...schedule,
+      breaks: newBreaks,
+    });
   };
 
   const validateSchedule = (): boolean => {
@@ -179,6 +190,12 @@ export const SchedulePage: React.FC = () => {
                 }
               />
             ))}
+
+            <BreaksEditor
+              breaks={schedule.breaks}
+              workSchedule={schedule.workSchedule}
+              onChange={handleBreaksChange}
+            />
           </Box>
         )}
       </Container>
