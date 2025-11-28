@@ -29,7 +29,7 @@ import { PickersDay } from "@mui/x-date-pickers/PickersDay";
 import { ru } from "date-fns/locale";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
-import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday, addMonths, subMonths } from "date-fns";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday, addMonths, subMonths, getDay } from "date-fns";
 import {
   CalendarToday as CalendarIcon,
   Check as CheckIcon,
@@ -40,6 +40,7 @@ import {
   Add as AddIcon,
 } from "@mui/icons-material";
 import { meApi, type Appointment } from "../../api/me";
+import type { DaySchedule } from "../../types/schedule";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { PhotoUploader } from "../../components/PhotoUploader";
 import { normalizeImageUrl } from "../../utils/imageUrl";
@@ -79,25 +80,32 @@ export const CalendarPage: React.FC = () => {
   const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
   const [masterSlug, setMasterSlug] = useState<string>("");
-  // Выходные дни мастера (опционально выставляются мастером через настройки)
-  // Формат: Set дат в формате "yyyy-MM-dd"
-  // TODO: Загружать из API /api/me/days-off при монтировании компонента
-  const [masterDaysOff, setMasterDaysOff] = useState<Set<string>>(new Set());
+  // Расписание мастера для определения выходных дней недели
+  const [workSchedule, setWorkSchedule] = useState<DaySchedule[] | null>(null);
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  // Загружаем slug мастера при монтировании
+  // Загружаем slug мастера и расписание при монтировании
   useEffect(() => {
-    const loadMasterSlug = async () => {
+    const loadMasterData = async () => {
       try {
         const master = await meApi.getMe();
         setMasterSlug(master.slug);
+        
+        // Загружаем расписание для определения выходных дней
+        try {
+          const scheduleResponse = await meApi.getSchedule();
+          setWorkSchedule(scheduleResponse.schedule.workSchedule);
+        } catch (scheduleErr) {
+          console.error("Ошибка загрузки расписания:", scheduleErr);
+          // Если расписание не найдено, это нормально для нового пользователя
+        }
       } catch (err) {
         console.error("Ошибка загрузки данных мастера:", err);
       }
     };
-    loadMasterSlug();
+    loadMasterData();
   }, []);
 
   useEffect(() => {
@@ -123,18 +131,36 @@ export const CalendarPage: React.FC = () => {
       if (monthsToLoad.length > 0) {
         Promise.all(monthsToLoad.map((month) => loadDatesWithAppointmentsForMonth(month)));
       }
-      // TODO: Загрузить выходные дни мастера из API
-      // loadMasterDaysOff();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate ? format(selectedDate, "yyyy-MM") : null]);
 
   // Проверка, является ли дата выходным днем мастера
-  // Выходные дни опционально выставляются самим мастером через настройки
-  // TODO: Загружать выходные дни мастера из API /api/me/days-off
+  // Выходной день определяется на основе workSchedule: если день недели не входит в workSchedule, это выходной
+  // ВАЖНО: Выходные дни применяются только с сегодняшнего дня, не влияют на прошлые даты
   const isDayOff = (date: Date): boolean => {
-    const dateKey = format(date, "yyyy-MM-dd");
-    return masterDaysOff.has(dateKey);
+    // Если дата в прошлом, не применяем правила выходных дней
+    // Используем isPast с startOfDay для корректного сравнения дат без времени
+    const checkDate = startOfDay(date);
+    if (isPast(checkDate) && !isToday(checkDate)) {
+      return false;
+    }
+    
+    // Если расписание не загружено или пустое, считаем все дни рабочими
+    if (!workSchedule || workSchedule.length === 0) {
+      return false;
+    }
+    
+    // Получаем день недели (0 = воскресенье, 1 = понедельник, ..., 6 = суббота)
+    const dayOfWeek = getDay(date);
+    
+    // Проверяем, есть ли этот день недели в расписании
+    const isWorkingDay = workSchedule.some(
+      (day) => day.dayOfWeek === dayOfWeek
+    );
+    
+    // Если дня нет в расписании, это выходной день
+    return !isWorkingDay;
   };
 
   // Загружаем даты с записями для конкретного месяца (формат "yyyy-MM")
@@ -186,58 +212,31 @@ export const CalendarPage: React.FC = () => {
         return next;
       });
 
-      // Теперь для каждой даты с завершенными записями загружаем данные за день,
-      // чтобы правильно получить фотографии (они привязываются только при загрузке за день)
+      // Проверяем фотографии на основе уже загруженных данных за месяц
+      // Не делаем дополнительные запросы для каждого дня - используем данные, которые уже есть
       const datesWithPhotosSet = new Set<string>();
-      const completedDates = new Set<string>();
       
-      // Собираем даты с завершенными записями
+      // Группируем записи по датам
+      const datesMap = new Map<string, Appointment[]>();
       data.forEach((apt) => {
-        if (apt.status === "COMPLETED") {
-          const date = new Date(apt.startAt);
-          const dateKey = format(date, "yyyy-MM-dd");
-          completedDates.add(dateKey);
+        const date = new Date(apt.startAt);
+        const dateKey = format(date, "yyyy-MM-dd");
+        if (!datesMap.has(dateKey)) {
+          datesMap.set(dateKey, []);
         }
+        datesMap.get(dateKey)!.push(apt);
       });
       
-      // Загружаем данные для каждой даты с завершенными записями
-      const photoCheckPromises = Array.from(completedDates).map(async (dateKey) => {
-        const [yearStr, monthStr, dayStr] = dateKey.split("-");
-        const checkDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
-        const localStartOfDay = startOfDay(checkDate);
-        const localEndOfDay = endOfDay(checkDate);
+      // Проверяем каждую дату на наличие завершенных записей с фотографиями
+      datesMap.forEach((appointments, dateKey) => {
+        const hasCompletedWithPhotos = appointments.some(
+          (apt) =>
+            apt.status === "COMPLETED" &&
+            apt.photos &&
+            Array.isArray(apt.photos) &&
+            apt.photos.length > 0
+        );
         
-        const year = localStartOfDay.getFullYear();
-        const month = localStartOfDay.getMonth();
-        const day = localStartOfDay.getDate();
-        
-        const utcStartOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-        const utcEndOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-
-        try {
-          const dayData = await meApi.getAppointments({
-            from: utcStartOfDay.toISOString(),
-            to: utcEndOfDay.toISOString(),
-          });
-          
-          // Проверяем, есть ли завершенные записи с фотографиями
-          const hasCompletedWithPhotos = dayData.some(
-            (apt) =>
-              apt.status === "COMPLETED" &&
-              apt.photos &&
-              Array.isArray(apt.photos) &&
-              apt.photos.length > 0
-          );
-          
-          return { dateKey, hasCompletedWithPhotos };
-        } catch (err) {
-          console.error(`Ошибка загрузки данных за ${dateKey}:`, err);
-          return { dateKey, hasCompletedWithPhotos: false };
-        }
-      });
-      
-      const photoCheckResults = await Promise.all(photoCheckPromises);
-      photoCheckResults.forEach(({ dateKey, hasCompletedWithPhotos }) => {
         if (hasCompletedWithPhotos) {
           datesWithPhotosSet.add(dateKey);
         }
@@ -848,10 +847,27 @@ export const CalendarPage: React.FC = () => {
                         day={day}
                         sx={{
                           position: "relative",
-                          // Стили для выходных дней (будущих)
-                          ...(isDayOffDate && !isPastDate && {
+                          // Стили для выходных дней (будущих) без записей
+                          ...(isDayOffDate && !isPastDate && !hasAppointments && {
                             color: "error.main",
                             fontWeight: 600,
+                          }),
+                          // Стили для выходных дней (будущих) с записями - красный цвет, но с фоном
+                          ...(isDayOffDate && !isPastDate && hasAppointments && {
+                            color: "error.main",
+                            fontWeight: 600,
+                            bgcolor: "error.light",
+                            "&:hover": {
+                              bgcolor: "error.main",
+                              color: "error.contrastText",
+                            },
+                            "&.Mui-selected": {
+                              bgcolor: "error.main",
+                              color: "error.contrastText",
+                              "&:hover": {
+                                bgcolor: "error.dark",
+                              },
+                            },
                           }),
                           // Стили для прошедших выходных дней
                           ...(isDayOffDate && isPastDate && {
