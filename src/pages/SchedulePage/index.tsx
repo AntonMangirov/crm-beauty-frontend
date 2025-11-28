@@ -5,12 +5,16 @@ import {
   Typography,
   Button,
   CircularProgress,
-  Card,
 } from "@mui/material";
 import { Save as SaveIcon } from "@mui/icons-material";
 import { meApi } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
-import type { MasterSchedule, UpdateScheduleRequest } from "../../types/schedule";
+import { DayScheduleCard } from "../../components/ScheduleEditor/DayScheduleCard";
+import type {
+  MasterSchedule,
+  UpdateScheduleRequest,
+  DaySchedule,
+} from "../../types/schedule";
 
 export const SchedulePage: React.FC = () => {
   const [schedule, setSchedule] = useState<MasterSchedule | null>(null);
@@ -35,13 +39,62 @@ export const SchedulePage: React.FC = () => {
     }
   };
 
+  const handleDayScheduleChange = (
+    dayOfWeek: number,
+    daySchedule: DaySchedule | null
+  ) => {
+    if (!schedule) return;
+
+    const currentWorkSchedule = schedule.workSchedule || [];
+    let newWorkSchedule: DaySchedule[];
+
+    if (daySchedule === null) {
+      // Удаляем день из расписания
+      newWorkSchedule = currentWorkSchedule.filter(
+        (day) => day.dayOfWeek !== dayOfWeek
+      );
+    } else {
+      // Обновляем или добавляем день
+      const existingIndex = currentWorkSchedule.findIndex(
+        (day) => day.dayOfWeek === dayOfWeek
+      );
+
+      if (existingIndex >= 0) {
+        // Обновляем существующий день
+        newWorkSchedule = [...currentWorkSchedule];
+        newWorkSchedule[existingIndex] = daySchedule;
+      } else {
+        // Добавляем новый день
+        newWorkSchedule = [...currentWorkSchedule, daySchedule];
+      }
+    }
+
+    setSchedule({
+      ...schedule,
+      workSchedule: newWorkSchedule.length > 0 ? newWorkSchedule : null,
+    });
+  };
+
+  const getDaySchedule = (dayOfWeek: number): DaySchedule | null => {
+    if (!schedule || !schedule.workSchedule) return null;
+    return (
+      schedule.workSchedule.find((day) => day.dayOfWeek === dayOfWeek) || null
+    );
+  };
+
   const validateSchedule = (): boolean => {
     if (!schedule) {
       showSnackbar("Нет данных для сохранения", "error");
       return false;
     }
 
-    // Валидация будет добавлена позже
+    // Проверяем, что есть хотя бы один рабочий день
+    if (!schedule.workSchedule || schedule.workSchedule.length === 0) {
+      showSnackbar("Выберите хотя бы один рабочий день", "error");
+      return false;
+    }
+
+    // Валидация интервалов будет проверяться на бэкенде
     return true;
   };
 
@@ -114,29 +167,20 @@ export const SchedulePage: React.FC = () => {
           Расписание работы
         </Typography>
 
-        <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
-          <Typography variant="body1" color="text.secondary">
-            Интерфейс редактирования расписания будет добавлен в следующих
-            шагах
-          </Typography>
-          {schedule && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Рабочих дней:{" "}
-                {schedule.workSchedule?.length || 0}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Перерывов: {schedule.breaks?.length || 0}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Буфер: {schedule.defaultBufferMinutes || "не задан"} мин
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Шаг слотов: {schedule.slotStepMinutes || "не задан"} мин
-              </Typography>
-            </Box>
-          )}
-        </Card>
+        {schedule && (
+          <Box>
+            {[1, 2, 3, 4, 5, 6, 0].map((dayOfWeek) => (
+              <DayScheduleCard
+                key={dayOfWeek}
+                dayOfWeek={dayOfWeek}
+                daySchedule={getDaySchedule(dayOfWeek)}
+                onChange={(daySchedule) =>
+                  handleDayScheduleChange(dayOfWeek, daySchedule)
+                }
+              />
+            ))}
+          </Box>
+        )}
       </Container>
 
       {/* Fixed Save Button */}
