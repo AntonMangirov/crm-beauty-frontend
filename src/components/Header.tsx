@@ -44,10 +44,14 @@ export const Header: React.FC<HeaderProps> = ({
         } catch (error: any) {
           // Если токен невалидный или пользователь не авторизован, очищаем его
           // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
-          if (error?.response?.status !== 401) {
+          const status = error?.response?.status;
+          if (status && status !== 401) {
             console.error("Ошибка загрузки данных мастера:", error);
           }
-          localStorage.removeItem("authToken");
+          // Очищаем токен только если это действительно ошибка авторизации
+          if (status === 401 || !status) {
+            localStorage.removeItem("authToken");
+          }
           setMaster(null);
         }
       } else {

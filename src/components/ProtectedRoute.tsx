@@ -31,12 +31,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         await meApi.getMe();
         setIsAuthenticated(true);
       } catch (error: any) {
-        // Если токен невалидный, очищаем его и редиректим на логин
+        // Если токен невалидный, очищаем его
         // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
-        if (error?.response?.status !== 401) {
+        const status = error?.response?.status;
+        if (status && status !== 401) {
           console.error("Ошибка проверки авторизации:", error);
         }
-        localStorage.removeItem("authToken");
+        // Очищаем токен только если это действительно ошибка авторизации
+        if (status === 401 || !status) {
+          localStorage.removeItem("authToken");
+        }
         setIsAuthenticated(false);
       } finally {
         setIsChecking(false);

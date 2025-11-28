@@ -110,7 +110,16 @@ apiClient.interceptors.response.use(
         processQueue(refreshError, null);
         isRefreshing = false;
         localStorage.removeItem("authToken");
-        window.location.href = "/login";
+        
+        // Не редиректим автоматически, если мы уже на странице логина
+        // или если это запрос из ProtectedRoute (он сам сделает редирект)
+        if (!window.location.pathname.includes("/login")) {
+          // Используем setTimeout чтобы избежать проблем с навигацией во время обработки ошибки
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 100);
+        }
+        
         return Promise.reject(refreshError);
       }
     }
