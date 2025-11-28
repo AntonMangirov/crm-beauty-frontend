@@ -137,7 +137,6 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
       // formData уже содержит нормализованные данные из StepClientForm
       const bookingData = {
-        name: formData.name,
         ...(formData.phone && { phone: formData.phone }),
         ...(formData.telegramUsername && { telegramUsername: formData.telegramUsername }),
         serviceId: selectedServices[0],
@@ -179,7 +178,6 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
             serviceDuration: selectedService.durationMin,
             startAt: response.startAt,
             endAt: response.endAt,
-            clientName: formData.name,
           },
         });
       }, 500);

@@ -31,7 +31,6 @@ import { meApi, type Service, type ClientListItem } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
 import { getCachedServices, setCachedServices } from "../utils/servicesCache";
-import { parseBookingText } from "../utils/textParser";
 
 interface QuickBookingModalProps {
   open: boolean;
@@ -46,7 +45,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   onSuccess,
   masterSlug,
 }) => {
-  const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [contactType, setContactType] = useState<"phone" | "telegram">("phone");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -67,7 +65,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [durationOverride, setDurationOverride] = useState<number | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
-  const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
+  const [autoFilled, setAutoFilled] = useState<{ contact?: boolean }>({});
   const [lastManualAppointments, setLastManualAppointments] = useState<Array<{
     id: string;
     serviceId: string;
@@ -320,7 +318,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   };
 
   const resetForm = () => {
-    setName("");
     setContact("");
     setContactType("phone");
     setSelectedService(null);
@@ -348,44 +345,8 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService]);
 
-  // Поиск клиента по имени (с debounce 300 мс)
-  useEffect(() => {
-    if (!name.trim() || name.trim().length < 2 || autoFilled.name) {
-      return;
-    }
 
-    const searchTimeout = setTimeout(async () => {
-      try {
-        setSearchingClient(true);
-        const clients = await meApi.getClients({ name: name.trim() });
-        if (clients.length > 0) {
-          const client = clients[0]; // Берем первого найденного
-          // Подставляем контакт, если он не заполнен
-          if (!contact.trim()) {
-            if (client.phone) {
-              setContactType("phone");
-              const formatted = formatPhoneDisplay(client.phone);
-              setContact(formatted);
-              setAutoFilled({ ...autoFilled, contact: true });
-            } else if (client.telegramUsername) {
-              setContactType("telegram");
-              setContact(client.telegramUsername);
-              setAutoFilled({ ...autoFilled, contact: true });
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Ошибка поиска клиента:", err);
-      } finally {
-        setSearchingClient(false);
-      }
-    }, 300); // Debounce 300ms
-
-    return () => clearTimeout(searchTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name]);
-
-  // Поиск клиента по контакту (обратная логика)
+  // Поиск клиента по контакту
   useEffect(() => {
     if (!contact.trim() || contact.trim().length < 3 || autoFilled.contact) {
       return;
@@ -402,13 +363,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           phone: searchQuery 
         });
         
+        // Клиент найден, можно показать индикатор
         if (clients.length > 0) {
-          const client = clients[0]; // Берем первого найденного
-          // Подставляем имя, если оно не заполнено
-          if (!name.trim()) {
-            setName(client.name);
-            setAutoFilled({ ...autoFilled, name: true });
-          }
+          setAutoFilled({ ...autoFilled, contact: true });
         }
       } catch (err) {
         console.error("Ошибка поиска клиента:", err);
@@ -480,11 +437,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       return;
     }
 
-    if (!name.trim()) {
-      setError("Введите имя клиента");
-      return;
-    }
-
     if (!selectedService) {
       setError("Выберите услугу");
       return;
@@ -532,7 +484,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       setSaving(true);
 
       const bookingData: {
-        name: string;
         serviceId: string;
         startAt: string;
         phone?: string;
@@ -542,7 +493,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         price?: number;
         durationOverride?: number;
       } = {
-        name: name.trim(),
         serviceId: selectedService.id,
         startAt: startAtISO,
         source: 'MANUAL', // Устанавливаем source=MANUAL для записей из ЛК мастера
@@ -608,7 +558,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           error: errorMessage,
           errorCode,
           formData: {
-            hasName: !!name.trim(),
             hasContact: !!contact.trim(),
             contactType,
             hasService: !!selectedService,
@@ -675,99 +624,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           )}
 
           <Grid container spacing={2}>
-            {/* Имя */}
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Имя клиента"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  // Сбрасываем флаг автоподстановки при ручном изменении
-                  if (autoFilled.name) {
-                    setAutoFilled({ ...autoFilled, name: false });
-                  }
-                }}
-                onPaste={(e) => {
-                  // Обрабатываем вставку текста из буфера обмена
-                  const pastedText = e.clipboardData.getData("text");
-                  const parsed = parseBookingText(pastedText, services);
-
-                  if (parsed.name || parsed.contact || parsed.time || parsed.serviceName) {
-                    e.preventDefault();
-
-                    // Заполняем имя
-                    if (parsed.name && !name.trim()) {
-                      setName(parsed.name);
-                    }
-
-                    // Заполняем контакт
-                    if (parsed.contact && !contact.trim()) {
-                      if (parsed.contactType === "telegram") {
-                        setContactType("telegram");
-                        setContact(parsed.contact);
-                      } else {
-                        setContactType("phone");
-                        handlePhoneChange(parsed.contact);
-                      }
-                    }
-
-                    // Заполняем время
-                    if (parsed.time && selectedDate) {
-                      const [hours, minutes] = parsed.time.split(":").map(Number);
-                      const timeDate = new Date(selectedDate);
-                      timeDate.setHours(hours, minutes, 0, 0);
-                      setSelectedTime(timeDate);
-                    }
-
-                    // Заполняем услугу
-                    if (parsed.serviceName) {
-                      const matchedService = services.find(
-                        (s) => s.name.toLowerCase() === parsed.serviceName?.toLowerCase()
-                      );
-                      if (matchedService) {
-                        setSelectedService(matchedService);
-                        setServiceSearch("");
-                      } else {
-                        // Пытаемся найти по частичному совпадению
-                        const partialMatch = services.find((s) =>
-                          s.name.toLowerCase().includes(parsed.serviceName!.toLowerCase())
-                        );
-                        if (partialMatch) {
-                          setSelectedService(partialMatch);
-                          setServiceSearch("");
-                        }
-                      }
-                    }
-
-                    showSnackbar("Данные автоматически заполнены из буфера обмена", "success");
-                  }
-                }}
-                required
-                placeholder="Введите имя или вставьте текст (например: 'Катя @kate 14:00 ресницы')"
-                autoFocus
-                InputProps={{
-                  endAdornment: searchingClient ? (
-                    <CircularProgress size={16} sx={{ mr: 1 }} />
-                  ) : autoFilled.name ? (
-                    <Chip
-                      label="Найдено"
-                      size="small"
-                      color="success"
-                      sx={{ height: 20, fontSize: "0.7rem" }}
-                    />
-                  ) : null,
-                }}
-                helperText={
-                  autoFilled.name
-                    ? "Имя найдено по контакту"
-                    : name.trim().length >= 2
-                    ? "Идет поиск клиента..."
-                    : "Можно вставить текст из буфера обмена для автоматического заполнения"
-                }
-              />
-            </Grid>
-
             {/* Контакт */}
             <Grid size={{ xs: 12 }}>
               <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
@@ -829,7 +685,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 }}
                 helperText={
                   autoFilled.contact
-                    ? "Контакт найден по имени"
+                    ? "Клиент найден"
                     : contact.trim().length >= 3
                     ? "Идет поиск клиента..."
                     : undefined

@@ -11,7 +11,6 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
-  Person as PersonIcon,
   Phone as PhoneIcon,
   Comment as CommentIcon,
   Telegram as TelegramIcon,
@@ -27,7 +26,7 @@ interface StepClientFormProps {
 }
 
 export interface ClientFormData {
-  name: string;
+  name?: string;
   phone?: string;
   telegramUsername?: string;
   comment?: string;
@@ -41,7 +40,6 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
   onBack,
 }) => {
   const [formData, setFormData] = useState<ClientFormData>({
-    name: "",
     phone: "",
     telegramUsername: "",
     comment: "",
@@ -113,12 +111,6 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Имя обязательно";
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = "Имя должно содержать минимум 2 символа";
-    }
 
     // Проверяем телефон, если он заполнен
     const phoneDigits = getPhoneDigits(formData.phone || "");
@@ -232,7 +224,6 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
 
       // Отправляем данные
       await onFormSubmit({
-        name: formData.name,
         ...(normalizedPhone && { phone: normalizedPhone }),
         ...(normalizedTelegramUsername && { telegramUsername: normalizedTelegramUsername }),
         ...(formData.comment && { comment: formData.comment }),
@@ -359,26 +350,6 @@ export const StepClientForm: React.FC<StepClientFormProps> = ({
       {/* Форма */}
       <form onSubmit={handleSubmit}>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Имя *"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              error={!!errors.name}
-              helperText={errors.name}
-              InputProps={{
-                startAdornment: (
-                  <PersonIcon
-                    sx={{ mr: 1, color: "action.active", fontSize: 20 }}
-                  />
-                ),
-              }}
-              placeholder="Введите ваше имя"
-            />
-          </Grid>
-
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth

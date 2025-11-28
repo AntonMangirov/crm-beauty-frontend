@@ -28,7 +28,7 @@ interface BookingSuccessData {
   serviceDuration: number;
   startAt: string;
   endAt: string;
-  clientName: string;
+  clientName?: string;
 }
 
 export const BookingSuccess: React.FC = () => {
