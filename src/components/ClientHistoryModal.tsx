@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -18,12 +18,16 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   Close as CloseIcon,
   CalendarToday as CalendarIcon,
   Build as BuildIcon,
   Photo as PhotoIcon,
+  History as HistoryIcon,
+  Collections as CollectionsIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -65,17 +69,27 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // Собираем все фотографии из истории в один массив для галереи
+  const allPhotos = useMemo(() => {
+    return history.flatMap((item) => item.photos);
+  }, [history]);
+
+  const hasPhotos = allPhotos.length > 0;
+
   useEffect(() => {
     if (open && client) {
       loadHistory();
+      setActiveTab(0); // Сбрасываем вкладку при открытии
     } else {
       setHistory([]);
       setError(null);
       setSelectedPhoto(null);
+      setActiveTab(0);
     }
   }, [open, client]);
 
@@ -155,138 +169,228 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
-        {loading && history.length === 0 ? (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: 200,
-            }}
-          >
-            <CircularProgress />
+      <DialogContent dividers sx={{ p: 0 }}>
+        {/* Вкладки */}
+        {!loading && !error && history.length > 0 && (
+          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, newValue) => setActiveTab(newValue)}
+              sx={{ px: { xs: 1, sm: 2 } }}
+            >
+              <Tab
+                icon={<HistoryIcon />}
+                iconPosition="start"
+                label="История"
+                sx={{ textTransform: "none", minHeight: 64 }}
+              />
+              {hasPhotos && (
+                <Tab
+                  icon={<CollectionsIcon />}
+                  iconPosition="start"
+                  label={`Галерея (${allPhotos.length})`}
+                  sx={{ textTransform: "none", minHeight: 64 }}
+                />
+              )}
+            </Tabs>
           </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : history.length === 0 ? (
-          <Alert severity="info">История посещений пуста</Alert>
-        ) : (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {history.map((item) => (
-              <Card key={item.id} variant="outlined">
-                <CardContent>
-                  {/* Дата и статус */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      mb: 2,
-                      flexWrap: "wrap",
-                      gap: 1,
-                    }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <CalendarIcon sx={{ fontSize: 20, color: "text.secondary" }} />
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {formatDate(item.date)}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={statusLabels[item.status]}
-                      color={statusColors[item.status]}
-                      size="small"
-                    />
-                  </Box>
+        )}
 
-                  <Divider sx={{ mb: 2 }} />
-
-                  {/* Услуга */}
-                  <Box sx={{ mb: 2 }}>
+        {/* Содержимое вкладок */}
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          {loading && history.length === 0 ? (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: 200,
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Alert severity="error">{error}</Alert>
+          ) : history.length === 0 ? (
+            <Alert severity="info">История посещений пуста</Alert>
+          ) : activeTab === 0 ? (
+            // Вкладка "История"
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {history.map((item) => (
+                <Card key={item.id} variant="outlined">
+                  <CardContent>
+                    {/* Дата и статус */}
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        mb: 2,
+                        flexWrap: "wrap",
                         gap: 1,
-                        mb: 0.5,
                       }}
                     >
-                      <BuildIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {item.service.name}
-                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <CalendarIcon sx={{ fontSize: 20, color: "text.secondary" }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          {formatDate(item.date)}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={statusLabels[item.status]}
+                        color={statusColors[item.status]}
+                        size="small"
+                      />
                     </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                      {item.service.price.toLocaleString("ru-RU")} ₽
-                    </Typography>
-                  </Box>
 
-                  {/* Фото */}
-                  {item.photos.length > 0 && (
-                    <Box>
+                    <Divider sx={{ mb: 2 }} />
+
+                    {/* Услуга */}
+                    <Box sx={{ mb: 2 }}>
                       <Box
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           gap: 1,
-                          mb: 1.5,
+                          mb: 0.5,
                         }}
                       >
-                        <PhotoIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          Фото работ ({item.photos.length})
+                        <BuildIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {item.service.name}
                         </Typography>
                       </Box>
-                      <Grid container spacing={1.5}>
-                        {item.photos.map((photo) => (
-                          <Grid size={{ xs: 6, sm: 4 }} key={photo.id}>
-                            <Card
-                              sx={{
-                                cursor: "pointer",
-                                transition: "transform 0.2s",
-                                "&:hover": {
-                                  transform: "scale(1.02)",
-                                },
-                              }}
-                              onClick={() => setSelectedPhoto(photo.url)}
-                            >
-                              <CardMedia
-                                component="img"
-                                image={normalizeImageUrl(photo.url)}
-                                alt={photo.description || "Фото работы"}
-                                sx={{
-                                  height: { xs: 120, sm: 150 },
-                                  objectFit: "cover",
-                                }}
-                              />
-                              {photo.description && (
-                                <CardContent sx={{ p: 1, "&:last-child": { pb: 1 } }}>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                    }}
-                                  >
-                                    {photo.description}
-                                  </Typography>
-                                </CardContent>
-                              )}
-                            </Card>
-                          </Grid>
-                        ))}
-                      </Grid>
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                        {item.service.price.toLocaleString("ru-RU")} ₽
+                      </Typography>
                     </Box>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        )}
+
+                    {/* Фото */}
+                    {item.photos.length > 0 && (
+                      <Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 1.5,
+                          }}
+                        >
+                          <PhotoIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Фото работ ({item.photos.length})
+                          </Typography>
+                        </Box>
+                        <Grid container spacing={1.5}>
+                          {item.photos.map((photo) => (
+                            <Grid size={{ xs: 6, sm: 4 }} key={photo.id}>
+                              <Card
+                                sx={{
+                                  cursor: "pointer",
+                                  transition: "transform 0.2s",
+                                  "&:hover": {
+                                    transform: "scale(1.02)",
+                                  },
+                                }}
+                                onClick={() => setSelectedPhoto(photo.url)}
+                              >
+                                <CardMedia
+                                  component="img"
+                                  image={normalizeImageUrl(photo.url)}
+                                  alt={photo.description || "Фото работы"}
+                                  sx={{
+                                    height: { xs: 120, sm: 150 },
+                                    objectFit: "cover",
+                                  }}
+                                />
+                                {photo.description && (
+                                  <CardContent sx={{ p: 1, "&:last-child": { pb: 1 } }}>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{
+                                        display: "-webkit-box",
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: "vertical",
+                                        overflow: "hidden",
+                                      }}
+                                    >
+                                      {photo.description}
+                                    </Typography>
+                                  </CardContent>
+                                )}
+                              </Card>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          ) : (
+            // Вкладка "Галерея"
+            hasPhotos ? (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                  Все фотографии клиента ({allPhotos.length})
+                </Typography>
+                <Grid container spacing={2}>
+                  {allPhotos.map((photo) => (
+                    <Grid size={{ xs: 6, sm: 4, md: 3 }} key={photo.id}>
+                      <Card
+                        sx={{
+                          cursor: "pointer",
+                          transition: "transform 0.2s",
+                          "&:hover": {
+                            transform: "scale(1.02)",
+                          },
+                        }}
+                        onClick={() => setSelectedPhoto(photo.url)}
+                      >
+                        <CardMedia
+                          component="img"
+                          image={normalizeImageUrl(photo.url)}
+                          alt={photo.description || "Фото работы"}
+                          sx={{
+                            height: { xs: 150, sm: 200 },
+                            objectFit: "cover",
+                          }}
+                        />
+                        {photo.description && (
+                          <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {photo.description}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: "block", mt: 0.5, fontSize: "0.7rem" }}
+                            >
+                              {formatDate(photo.createdAt)}
+                            </Typography>
+                          </CardContent>
+                        )}
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            ) : (
+              <Alert severity="info">Нет фотографий для отображения</Alert>
+            )
+          )}
+        </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 2 }}>

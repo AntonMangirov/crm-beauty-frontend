@@ -45,6 +45,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   onSuccess,
   masterSlug,
 }) => {
+  const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [contactType, setContactType] = useState<"phone" | "telegram">("phone");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -65,7 +66,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [durationOverride, setDurationOverride] = useState<number | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
-  const [autoFilled, setAutoFilled] = useState<{ contact?: boolean }>({});
+  const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
   const [lastManualAppointments, setLastManualAppointments] = useState<Array<{
     id: string;
     serviceId: string;
@@ -318,6 +319,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   };
 
   const resetForm = () => {
+    setName("");
     setContact("");
     setContactType("phone");
     setSelectedService(null);
@@ -345,39 +347,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService]);
 
-
-  // Поиск клиента по контакту
-  useEffect(() => {
-    if (!contact.trim() || contact.trim().length < 3 || autoFilled.contact) {
-      return;
-    }
-
-    const searchTimeout = setTimeout(async () => {
-      try {
-        setSearchingClient(true);
-        const searchQuery = contactType === "phone" 
-          ? contact.replace(/[^\d+]/g, "")
-          : contact.trim().replace(/^@/, "");
-        
-        const clients = await meApi.getClients({ 
-          phone: searchQuery 
-        });
-        
-        // Клиент найден, можно показать индикатор
-        if (clients.length > 0) {
-          setAutoFilled({ ...autoFilled, contact: true });
-        }
-      } catch (err) {
-        console.error("Ошибка поиска клиента:", err);
-      } finally {
-        setSearchingClient(false);
-      }
-    }, 500); // Debounce 500ms
-
-    return () => clearTimeout(searchTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contact, contactType]);
-
   const formatPhoneDisplay = (phone: string): string => {
     let cleaned = phone.replace(/[^\d+]/g, "");
     if (cleaned.startsWith("8")) {
@@ -402,6 +371,79 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     }
     return cleaned;
   };
+
+  // Поиск клиента по имени (с debounce 300 мс)
+  useEffect(() => {
+    if (!name.trim() || name.trim().length < 2 || autoFilled.name) {
+      return;
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setSearchingClient(true);
+        const clients = await meApi.getClients({ name: name.trim() });
+        if (clients.length > 0) {
+          const client = clients[0]; // Берем первого найденного
+          // Подставляем контакт, если он не заполнен
+          if (!contact.trim()) {
+            if (client.phone) {
+              setContactType("phone");
+              const formatted = formatPhoneDisplay(client.phone);
+              setContact(formatted);
+              setAutoFilled({ ...autoFilled, contact: true });
+            } else if (client.telegramUsername) {
+              setContactType("telegram");
+              setContact(client.telegramUsername);
+              setAutoFilled({ ...autoFilled, contact: true });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка поиска клиента:", err);
+      } finally {
+        setSearchingClient(false);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(searchTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name]);
+
+  // Поиск клиента по контакту (обратная логика)
+  useEffect(() => {
+    if (!contact.trim() || contact.trim().length < 3 || autoFilled.contact) {
+      return;
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setSearchingClient(true);
+        const searchQuery = contactType === "phone" 
+          ? contact.replace(/[^\d+]/g, "")
+          : contact.trim().replace(/^@/, "");
+        
+        const clients = await meApi.getClients({ 
+          phone: searchQuery 
+        });
+        
+        if (clients.length > 0) {
+          const client = clients[0]; // Берем первого найденного
+          // Подставляем имя, если оно не заполнено
+          if (!name.trim()) {
+            setName(client.name);
+            setAutoFilled({ ...autoFilled, name: true });
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка поиска клиента:", err);
+      } finally {
+        setSearchingClient(false);
+      }
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(searchTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contact, contactType]);
 
   const handlePhoneChange = (value: string) => {
     let cleaned = value.replace(/[^\d+\s()-]/g, "");
@@ -484,6 +526,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       setSaving(true);
 
       const bookingData: {
+        name?: string;
         serviceId: string;
         startAt: string;
         phone?: string;
@@ -497,6 +540,11 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         startAt: startAtISO,
         source: 'MANUAL', // Устанавливаем source=MANUAL для записей из ЛК мастера
       };
+
+      // Добавляем имя только если оно заполнено
+      if (name.trim()) {
+        bookingData.name = name.trim();
+      }
 
       if (contactType === "phone") {
         const phoneDigits = contact.replace(/[^\d]/g, "");
@@ -558,6 +606,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           error: errorMessage,
           errorCode,
           formData: {
+            hasName: !!name.trim(),
             hasContact: !!contact.trim(),
             contactType,
             hasService: !!selectedService,
@@ -624,6 +673,43 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           )}
 
           <Grid container spacing={2}>
+            {/* Имя */}
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                label="Имя клиента"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  // Сбрасываем флаг автоподстановки при ручном изменении
+                  if (autoFilled.name) {
+                    setAutoFilled({ ...autoFilled, name: false });
+                  }
+                }}
+                placeholder="Введите имя клиента (необязательно)"
+                autoFocus
+                InputProps={{
+                  endAdornment: searchingClient ? (
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                  ) : autoFilled.name ? (
+                    <Chip
+                      label="Найдено"
+                      size="small"
+                      color="success"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
+                    />
+                  ) : null,
+                }}
+                helperText={
+                  autoFilled.name
+                    ? "Имя найдено по контакту"
+                    : name.trim().length >= 2
+                    ? "Идет поиск клиента..."
+                    : "Необязательно"
+                }
+              />
+            </Grid>
+
             {/* Контакт */}
             <Grid size={{ xs: 12 }}>
               <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
@@ -685,7 +771,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 }}
                 helperText={
                   autoFilled.contact
-                    ? "Клиент найден"
+                    ? "Контакт найден по имени"
                     : contact.trim().length >= 3
                     ? "Идет поиск клиента..."
                     : undefined
