@@ -312,6 +312,15 @@ export const meApi = {
   },
 
   /**
+   * PATCH /api/me/clients/:id
+   * Обновить данные клиента
+   */
+  updateClient: async (clientId: string, data: { name?: string }): Promise<ClientListItem> => {
+    const response = await apiClient.patch(`/api/me/clients/${clientId}`, data);
+    return response.data;
+  },
+
+  /**
    * GET /api/me/appointments/last-manual
    * Получить последние ручные записи (source = MANUAL или PHONE)
    */

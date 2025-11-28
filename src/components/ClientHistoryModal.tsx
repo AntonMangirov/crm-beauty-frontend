@@ -20,6 +20,7 @@ import {
   useMediaQuery,
   Tabs,
   Tab,
+  TextField,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -28,6 +29,9 @@ import {
   Photo as PhotoIcon,
   History as HistoryIcon,
   Collections as CollectionsIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  Cancel as CancelIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -39,6 +43,7 @@ interface ClientHistoryModalProps {
   open: boolean;
   client: ClientListItem | null;
   onClose: () => void;
+  onClientUpdated?: (updatedClient: ClientListItem) => void;
 }
 
 const statusColors: Record<
@@ -64,12 +69,17 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
   open,
   client,
   onClose,
+  onClientUpdated,
 }) => {
   const [history, setHistory] = useState<ClientHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [updatingName, setUpdatingName] = useState(false);
+  const [currentClient, setCurrentClient] = useState<ClientListItem | null>(client);
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -83,6 +93,9 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
 
   useEffect(() => {
     if (open && client) {
+      setCurrentClient(client);
+      setEditedName(client.name);
+      setIsEditingName(false);
       loadHistory();
       setActiveTab(0); // Сбрасываем вкладку при открытии
     } else {
@@ -90,6 +103,8 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
       setError(null);
       setSelectedPhoto(null);
       setActiveTab(0);
+      setIsEditingName(false);
+      setCurrentClient(null);
     }
   }, [open, client]);
 
@@ -126,6 +141,50 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
     }
   };
 
+  const handleStartEditName = () => {
+    if (currentClient) {
+      setEditedName(currentClient.name);
+      setIsEditingName(true);
+    }
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    if (currentClient) {
+      setEditedName(currentClient.name);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!currentClient) return;
+
+    const trimmedName = editedName.trim();
+    if (trimmedName === currentClient.name) {
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setUpdatingName(true);
+      const updatedClient = await meApi.updateClient(currentClient.id, {
+        name: trimmedName || "-",
+      });
+      setCurrentClient(updatedClient);
+      setIsEditingName(false);
+      showSnackbar("Имя клиента успешно обновлено", "success");
+      
+      // Обновляем имя в родительском компоненте через callback
+      if (onClientUpdated) {
+        onClientUpdated(updatedClient);
+      }
+    } catch (err) {
+      console.error("Ошибка обновления имени клиента:", err);
+      showSnackbar("Не удалось обновить имя клиента", "error");
+    } finally {
+      setUpdatingName(false);
+    }
+  };
+
   return (
     <Dialog
       open={open}
@@ -148,14 +207,73 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
           pb: 1,
         }}
       >
-        <Box>
+        <Box sx={{ flex: 1 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             История клиента
           </Typography>
-          {client && (
-            <Typography variant="body2" color="text.secondary">
-              {client.name}
-            </Typography>
+          {currentClient && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+              {isEditingName ? (
+                <>
+                  <TextField
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    size="small"
+                    placeholder="Введите имя"
+                    disabled={updatingName}
+                    autoFocus
+                    sx={{
+                      flex: 1,
+                      "& .MuiInputBase-root": {
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSaveName();
+                      } else if (e.key === "Escape") {
+                        handleCancelEditName();
+                      }
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={handleSaveName}
+                    disabled={updatingName}
+                    color="primary"
+                    sx={{ p: 0.5 }}
+                  >
+                    {updatingName ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CheckIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={handleCancelEditName}
+                    disabled={updatingName}
+                    sx={{ p: 0.5 }}
+                  >
+                    <CancelIcon fontSize="small" />
+                  </IconButton>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary">
+                    {currentClient.name === "-" ? "—" : currentClient.name}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={handleStartEditName}
+                    sx={{ p: 0.5, ml: 0.5 }}
+                    title="Редактировать имя"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </>
+              )}
+            </Box>
           )}
         </Box>
         <IconButton

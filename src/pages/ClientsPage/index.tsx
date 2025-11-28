@@ -73,6 +73,15 @@ export const ClientsPage: React.FC = () => {
     setSelectedClient(null);
   };
 
+  const handleClientUpdated = (updatedClient: ClientListItem) => {
+    // Обновляем клиента в списке
+    setClients((prevClients) =>
+      prevClients.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+    );
+    // Обновляем выбранного клиента
+    setSelectedClient(updatedClient);
+  };
+
   const columns: GridColDef[] = [
     {
       field: "name",
@@ -311,6 +320,7 @@ export const ClientsPage: React.FC = () => {
         open={historyModalOpen}
         client={selectedClient}
         onClose={handleCloseHistoryModal}
+        onClientUpdated={handleClientUpdated}
       />
     </Container>
   );
