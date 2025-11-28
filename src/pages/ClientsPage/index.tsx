@@ -15,20 +15,29 @@ import {
   TableHead,
   TableRow,
   Paper,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { People as PeopleIcon, PhotoCamera as PhotoCameraIcon, Image as ImageIcon } from "@mui/icons-material";
+import {
+  People as PeopleIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Image as ImageIcon,
+  Search as SearchIcon,
+} from "@mui/icons-material";
 import { meApi, type ClientListItem } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { ClientHistoryModal } from "../../components/ClientHistoryModal";
 
 export const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<ClientListItem[]>([]);
+  const [allClients, setAllClients] = useState<ClientListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
   const { showSnackbar } = useSnackbar();
@@ -39,11 +48,16 @@ export const ClientsPage: React.FC = () => {
     loadClients();
   }, []);
 
+  useEffect(() => {
+    filterClients();
+  }, [searchQuery, allClients]);
+
   const loadClients = async () => {
     try {
       setLoading(true);
       setError(null);
       const clientsData = await meApi.getClients();
+      setAllClients(clientsData);
       setClients(clientsData);
     } catch (err) {
       console.error("Ошибка загрузки клиентов:", err);
@@ -52,6 +66,59 @@ export const ClientsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterClients = () => {
+    if (!searchQuery.trim()) {
+      setClients(allClients);
+      return;
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = allClients.filter((client) => {
+      // Поиск по имени
+      if (client.name.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Поиск по телефону
+      if (client.phone && client.phone.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Поиск по Telegram ID
+      if (
+        client.telegramUsername &&
+        client.telegramUsername.toLowerCase().includes(query.replace("@", ""))
+      ) {
+        return true;
+      }
+
+      // Поиск по дате последнего посещения
+      if (client.lastVisit) {
+        try {
+          const dateStr = format(new Date(client.lastVisit), "dd.MM.yyyy", {
+            locale: ru,
+          });
+          if (dateStr.includes(query)) {
+            return true;
+          }
+          // Также проверяем формат "dd MMMM yyyy"
+          const dateStrLong = format(new Date(client.lastVisit), "dd MMMM yyyy", {
+            locale: ru,
+          });
+          if (dateStrLong.toLowerCase().includes(query)) {
+            return true;
+          }
+        } catch {
+          // Игнорируем ошибки парсинга даты
+        }
+      }
+
+      return false;
+    });
+
+    setClients(filtered);
   };
 
   const formatDate = (dateString: string | null): string => {
@@ -216,6 +283,33 @@ export const ClientsPage: React.FC = () => {
           Список всех ваших клиентов с историей посещений
         </Typography>
       </Box>
+
+      {/* Поиск */}
+      <Card sx={{ mb: 2, p: 2 }}>
+        <TextField
+          fullWidth
+          placeholder="Поиск по имени, телефону, Telegram ID или дате..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              backgroundColor: "background.paper",
+            },
+          }}
+        />
+        {searchQuery && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            Найдено клиентов: {clients.length}
+          </Typography>
+        )}
+      </Card>
 
       {/* Ошибка */}
       {error && (

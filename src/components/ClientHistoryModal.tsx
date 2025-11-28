@@ -74,7 +74,11 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
   const [history, setHistory] = useState<ClientHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{
+    url: string;
+    appointmentDate?: string;
+    services?: string[];
+  } | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -84,9 +88,15 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // Собираем все фотографии из истории в один массив для галереи
+  // Собираем все фотографии из истории в один массив для галереи с информацией о посещении
   const allPhotos = useMemo(() => {
-    return history.flatMap((item) => item.photos);
+    return history.flatMap((item) =>
+      item.photos.map((photo) => ({
+        ...photo,
+        appointmentDate: item.date,
+        serviceName: item.service.name,
+      }))
+    );
   }, [history]);
 
   const hasPhotos = allPhotos.length > 0;
@@ -410,7 +420,13 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
                                     transform: "scale(1.02)",
                                   },
                                 }}
-                                onClick={() => setSelectedPhoto(photo.url)}
+                                onClick={() =>
+                                setSelectedPhoto({
+                                  url: photo.url,
+                                  appointmentDate: item.date,
+                                  services: [item.service.name],
+                                })
+                              }
                               >
                                 <CardMedia
                                   component="img"
@@ -465,7 +481,13 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
                             transform: "scale(1.02)",
                           },
                         }}
-                        onClick={() => setSelectedPhoto(photo.url)}
+                        onClick={() =>
+                          setSelectedPhoto({
+                            url: photo.url,
+                            appointmentDate: photo.appointmentDate,
+                            services: photo.serviceName ? [photo.serviceName] : undefined,
+                          })
+                        }
                       >
                         <CardMedia
                           component="img"
@@ -476,8 +498,8 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
                             objectFit: "cover",
                           }}
                         />
-                        {photo.description && (
-                          <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                        <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                          {photo.description && (
                             <Typography
                               variant="caption"
                               color="text.secondary"
@@ -486,19 +508,31 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: "vertical",
                                 overflow: "hidden",
+                                mb: 0.5,
                               }}
                             >
                               {photo.description}
                             </Typography>
+                          )}
+                          {photo.appointmentDate && (
                             <Typography
                               variant="caption"
                               color="text.secondary"
-                              sx={{ display: "block", mt: 0.5, fontSize: "0.7rem" }}
+                              sx={{ display: "block", fontSize: "0.7rem", fontWeight: 500 }}
                             >
-                              {formatDate(photo.createdAt)}
+                              {formatDate(photo.appointmentDate)}
                             </Typography>
-                          </CardContent>
-                        )}
+                          )}
+                          {photo.serviceName && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: "block", fontSize: "0.7rem" }}
+                            >
+                              {photo.serviceName}
+                            </Typography>
+                          )}
+                        </CardContent>
                       </Card>
                     </Grid>
                   ))}
@@ -526,7 +560,7 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
           fullWidth
           PaperProps={{
             sx: {
-              bgcolor: "rgba(0, 0, 0, 0.9)",
+              bgcolor: "rgba(0, 0, 0, 0.95)",
               borderRadius: 1,
             },
           }}
@@ -549,16 +583,64 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
             </IconButton>
             <Box
               component="img"
-              src={normalizeImageUrl(selectedPhoto)}
+              src={normalizeImageUrl(selectedPhoto.url)}
               alt="Фото работы"
               sx={{
                 width: "100%",
                 height: "auto",
-                maxHeight: "90vh",
+                maxHeight: "85vh",
                 objectFit: "contain",
                 display: "block",
               }}
             />
+            {/* Информация о посещении */}
+            {(selectedPhoto.appointmentDate || selectedPhoto.services) && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bgcolor: "rgba(0, 0, 0, 0.8)",
+                  color: "white",
+                  p: 2,
+                  backdropFilter: "blur(10px)",
+                }}
+              >
+                {selectedPhoto.appointmentDate && (
+                  <Box sx={{ mb: selectedPhoto.services ? 1 : 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        fontWeight: 500,
+                      }}
+                    >
+                      <CalendarIcon sx={{ fontSize: 18 }} />
+                      {formatDate(selectedPhoto.appointmentDate)}
+                    </Typography>
+                  </Box>
+                )}
+                {selectedPhoto.services && selectedPhoto.services.length > 0 && (
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        fontWeight: 500,
+                      }}
+                    >
+                      <BuildIcon sx={{ fontSize: 18 }} />
+                      {selectedPhoto.services.join(", ")}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            )}
           </DialogContent>
         </Dialog>
       )}
