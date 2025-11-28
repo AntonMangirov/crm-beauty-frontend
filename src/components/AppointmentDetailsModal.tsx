@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Alert,
   IconButton,
+  Pagination,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -50,6 +51,8 @@ export const AppointmentDetailsModal: React.FC<
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
+  const [slotsPage, setSlotsPage] = useState(1);
+  const slotsPerPage = 18;
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export const AppointmentDetailsModal: React.FC<
       setSelectedDate(null);
       setAvailableSlots([]);
       setSelectedSlot(null);
+      setSlotsPage(1);
     } else if (appointment) {
       // Устанавливаем текущую дату встречи при открытии
       setSelectedDate(parseISO(appointment.startAt));
@@ -68,6 +72,7 @@ export const AppointmentDetailsModal: React.FC<
   useEffect(() => {
     if (rescheduleMode && selectedDate && appointment) {
       loadAvailableSlots();
+      setSlotsPage(1); // Сбрасываем страницу при смене даты
     }
   }, [rescheduleMode, selectedDate, appointment]);
 
@@ -355,29 +360,44 @@ export const AppointmentDetailsModal: React.FC<
                     На выбранную дату нет доступных слотов
                   </Alert>
                 ) : (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                    {availableSlots.map((slot) => {
-                      const slotDate = parseISO(slot);
-                      const slotEnd = addMinutes(slotDate, appointment.service.durationMin);
-                      const isSelected = selectedSlot === slot;
-                      return (
-                        <Button
-                          key={slot}
-                          variant={isSelected ? "contained" : "outlined"}
-                          onClick={() => setSelectedSlot(slot)}
-                          sx={{
-                            textTransform: "none",
-                            py: 1,
-                            minWidth: 120,
-                            flex: "1 1 calc(33.333% - 8px)",
-                            maxWidth: "calc(33.333% - 8px)",
-                          }}
-                        >
-                          {formatTime(slot)} - {formatTime(slotEnd.toISOString())}
-                        </Button>
-                      );
-                    })}
-                  </Box>
+                  <>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {availableSlots
+                        .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                        .map((slot) => {
+                          const slotDate = parseISO(slot);
+                          const slotEnd = addMinutes(slotDate, appointment.service.durationMin);
+                          const isSelected = selectedSlot === slot;
+                          return (
+                            <Button
+                              key={slot}
+                              variant={isSelected ? "contained" : "outlined"}
+                              onClick={() => setSelectedSlot(slot)}
+                              sx={{
+                                textTransform: "none",
+                                py: 1,
+                                minWidth: 120,
+                                flex: "1 1 calc(33.333% - 8px)",
+                                maxWidth: "calc(33.333% - 8px)",
+                              }}
+                            >
+                              {formatTime(slot)} - {formatTime(slotEnd.toISOString())}
+                            </Button>
+                          );
+                        })}
+                    </Box>
+                    {availableSlots.length > slotsPerPage && (
+                      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                        <Pagination
+                          count={Math.ceil(availableSlots.length / slotsPerPage)}
+                          page={slotsPage}
+                          onChange={(_, value) => setSlotsPage(value)}
+                          size="small"
+                          color="primary"
+                        />
+                      </Box>
+                    )}
+                  </>
                 )}
               </Box>
             )}

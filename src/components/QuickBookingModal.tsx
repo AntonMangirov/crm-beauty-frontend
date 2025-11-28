@@ -15,6 +15,7 @@ import {
   Grid,
   IconButton,
   Collapse,
+  Pagination,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -55,9 +56,10 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]); // Занятые слоты
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [alternativeDays, setAlternativeDays] = useState<Array<{ date: Date; slots: string[] }>>([]);
+  const [slotsPage, setSlotsPage] = useState(1);
+  const slotsPerPage = 12;
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +203,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   // Загружает ближайшие свободные слоты для выбранной даты и услуги
   // Эндпоинт: GET /api/public/:slug/timeslots?date=YYYY-MM-DD&serviceId=xxx
   // Возвращает массив ISO строк, отсортированных по времени (первый - ближайший)
-  // Также загружает занятые слоты для отображения как disabled
+  // Бэкенд уже учитывает расписание, перерывы, буферы и существующие записи
   const loadAvailableSlots = async () => {
     if (!selectedDate || !selectedService || !masterSlug) return;
 
@@ -212,7 +214,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       const day = selectedDate.getDate();
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-      // Загружаем свободные слоты
+      // Загружаем доступные слоты (бэкенд уже учитывает все факторы)
       const response = await mastersApi.getTimeslots(
         masterSlug,
         dateStr,
@@ -221,29 +223,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
       // Слоты уже отсортированы по времени (первый - ближайший)
       setAvailableSlots(response.available);
-
-      // Загружаем занятые слоты для отображения как disabled
-      const utcStartOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const utcEndOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-
-      try {
-        const appointments = await meApi.getAppointments({
-          from: utcStartOfDay.toISOString(),
-          to: utcEndOfDay.toISOString(),
-        });
-
-        // Извлекаем занятые временные слоты (исключаем отмененные)
-        const booked: string[] = [];
-        appointments.forEach((apt) => {
-          if (apt.status !== "CANCELED" && apt.status !== "NO_SHOW") {
-            booked.push(apt.startAt);
-          }
-        });
-        setBookedSlots(booked);
-      } catch (err) {
-        console.error("Ошибка загрузки занятых слотов:", err);
-        setBookedSlots([]);
-      }
 
       // Если нет свободных слотов, ищем альтернативные дни
       if (response.available.length === 0) {
@@ -254,7 +233,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     } catch (err) {
       console.error("Ошибка загрузки свободных слотов:", err);
       setAvailableSlots([]);
-      setBookedSlots([]);
       setAlternativeDays([]);
     } finally {
       setLoadingSlots(false);
@@ -327,7 +305,6 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     setSelectedDate(null);
     setSelectedTime(null);
     setAvailableSlots([]);
-    setBookedSlots([]);
     setError(null);
     setComment("");
     setCustomPrice(null);
@@ -651,11 +628,10 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
             justifyContent: "space-between",
             alignItems: "center",
             pb: 1,
+            fontWeight: 600,
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Быстрая запись
-          </Typography>
+          Быстрая запись
           <IconButton
             onClick={onClose}
             size="small"
@@ -859,17 +835,20 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                     placeholder="Выберите или введите для поиска"
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body2">{option.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.price.toLocaleString("ru-RU")} ₽ •{" "}
-                        {option.durationMin} мин
-                      </Typography>
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box component="li" key={key} {...otherProps}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2">{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.price.toLocaleString("ru-RU")} ₽ •{" "}
+                          {option.durationMin} мин
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
+                  );
+                }}
                 freeSolo={false}
               />
             </Grid>
@@ -954,65 +933,47 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                       )}
                     </Box>
                   ) : (
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {/* Генерируем все возможные слоты для дня (9:00-18:00) */}
-                      {(() => {
-                        const allSlots: Array<{ time: string; iso: string; available: boolean }> = [];
-                        const year = selectedDate.getFullYear();
-                        const month = selectedDate.getMonth();
-                        const day = selectedDate.getDate();
+                    <>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {/* Показываем доступные слоты с пагинацией */}
+                        {availableSlots
+                          .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                          .map((slotISO) => {
+                            const slotDate = new Date(slotISO);
+                            const timeStr = format(slotDate, "HH:mm");
+                            const isSelected =
+                              selectedTime &&
+                              Math.abs(selectedTime.getTime() - slotDate.getTime()) < 60000;
 
-                        // Генерируем все слоты с 9:00 до 18:00
-                        for (let hour = 9; hour < 18; hour++) {
-                          const slotDate = new Date(Date.UTC(year, month, day, hour, 0, 0, 0));
-                          const timeStr = format(slotDate, "HH:mm");
-                          const slotISO = slotDate.toISOString();
-                          const isAvailable = availableSlots.includes(slotISO);
-                          const isBooked = bookedSlots.some((booked) => {
-                            const bookedDate = new Date(booked);
                             return (
-                              bookedDate.getUTCHours() === hour &&
-                              bookedDate.getUTCMinutes() === 0
+                              <Button
+                                key={slotISO}
+                                variant={isSelected ? "contained" : "outlined"}
+                                size="small"
+                                onClick={() => handleQuickSlotClick(slotISO)}
+                                startIcon={<TimeIcon />}
+                                sx={{
+                                  textTransform: "none",
+                                }}
+                                title={`Выбрать ${timeStr}`}
+                              >
+                                {timeStr}
+                              </Button>
                             );
-                          });
-
-                          allSlots.push({
-                            time: timeStr,
-                            iso: slotISO,
-                            available: isAvailable && !isBooked,
-                          });
-                        }
-
-                        return allSlots.slice(0, 10).map((slot) => {
-                          const slotDate = new Date(slot.iso);
-                          const isSelected =
-                            selectedTime &&
-                            Math.abs(selectedTime.getTime() - slotDate.getTime()) < 60000;
-
-                          return (
-                            <Button
-                              key={slot.iso}
-                              variant={isSelected ? "contained" : "outlined"}
-                              size="small"
-                              onClick={() => slot.available && handleQuickSlotClick(slot.iso)}
-                              disabled={!slot.available}
-                              startIcon={<TimeIcon />}
-                              sx={{
-                                textTransform: "none",
-                                opacity: slot.available ? 1 : 0.5,
-                              }}
-                              title={
-                                slot.available
-                                  ? `Выбрать ${slot.time}`
-                                  : `Время ${slot.time} занято`
-                              }
-                            >
-                              {slot.time}
-                            </Button>
-                          );
-                        });
-                      })()}
-                    </Box>
+                          })}
+                      </Box>
+                      {availableSlots.length > slotsPerPage && (
+                        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                          <Pagination
+                            count={Math.ceil(availableSlots.length / slotsPerPage)}
+                            page={slotsPage}
+                            onChange={(_, value) => setSlotsPage(value)}
+                            size="small"
+                            color="primary"
+                          />
+                        </Box>
+                      )}
+                    </>
                   )}
                 </Box>
               </Grid>

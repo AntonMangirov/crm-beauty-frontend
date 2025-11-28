@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  Pagination,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -47,12 +48,15 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [slotsPage, setSlotsPage] = useState(1);
+  const slotsPerPage = 20;
 
   const handleDateChange = (date: Date | null) => {
     setLocalDate(date);
     onDateChange(date);
     setLocalTime(""); // Сбрасываем выбранное время при смене даты
     onTimeChange("");
+    setSlotsPage(1); // Сбрасываем страницу при смене даты
   };
 
   const handleTimeChange = (time: string) => {
@@ -268,22 +272,37 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                     Нет доступного времени на выбранную дату
                   </Typography>
                 ) : (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                    {availableSlots.map((time) => (
-                      <Button
-                        key={time}
-                        variant={localTime === time ? "contained" : "outlined"}
-                        size="small"
-                        onClick={() => handleTimeChange(time)}
-                        sx={{
-                          minWidth: 80,
-                          textTransform: "none",
-                        }}
-                      >
-                        {time}
-                      </Button>
-                    ))}
-                  </Box>
+                  <>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                      {availableSlots
+                        .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                        .map((time) => (
+                          <Button
+                            key={time}
+                            variant={localTime === time ? "contained" : "outlined"}
+                            size="small"
+                            onClick={() => handleTimeChange(time)}
+                            sx={{
+                              minWidth: 80,
+                              textTransform: "none",
+                            }}
+                          >
+                            {time}
+                          </Button>
+                        ))}
+                    </Box>
+                    {availableSlots.length > slotsPerPage && (
+                      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                        <Pagination
+                          count={Math.ceil(availableSlots.length / slotsPerPage)}
+                          page={slotsPage}
+                          onChange={(_, value) => setSlotsPage(value)}
+                          size="small"
+                          color="primary"
+                        />
+                      </Box>
+                    )}
+                  </>
                 )}
 
                 {localTime && (
