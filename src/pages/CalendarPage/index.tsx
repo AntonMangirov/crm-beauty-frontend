@@ -45,6 +45,7 @@ import { useSnackbar } from "../../components/SnackbarProvider";
 import { PhotoUploader } from "../../components/PhotoUploader";
 import { normalizeImageUrl } from "../../utils/imageUrl";
 import { QuickBookingModal } from "../../components/QuickBookingModal";
+import { AppointmentDetailsModal } from "../../components/AppointmentDetailsModal";
 
 const statusColors: Record<
   Appointment["status"],
@@ -80,6 +81,8 @@ export const CalendarPage: React.FC = () => {
   const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
   const [masterSlug, setMasterSlug] = useState<string>("");
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [appointmentDetailsOpen, setAppointmentDetailsOpen] = useState(false);
   // Расписание мастера для определения выходных дней недели
   const [workSchedule, setWorkSchedule] = useState<DaySchedule[] | null>(null);
   const { showSnackbar } = useSnackbar();
@@ -1065,7 +1068,21 @@ export const CalendarPage: React.FC = () => {
               const displayPrice = price ?? service.price;
 
               return (
-                <Card key={id} sx={{ width: "100%" }}>
+                <Card
+                  key={id}
+                  sx={{
+                    width: "100%",
+                    cursor: "pointer",
+                    transition: "box-shadow 0.2s",
+                    "&:hover": {
+                      boxShadow: 4,
+                    },
+                  }}
+                  onClick={() => {
+                    setSelectedAppointment(appointment);
+                    setAppointmentDetailsOpen(true);
+                  }}
+                >
                   <CardContent>
                     {/* Заголовок с клиентом и статусом */}
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
@@ -1247,20 +1264,36 @@ export const CalendarPage: React.FC = () => {
               columns={columns}
               getRowId={(row) => row.id}
               pageSizeOptions={[10, 25, 50]}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 25 },
-                },
+              onRowClick={(params) => {
+                setSelectedAppointment(params.row);
+                setAppointmentDetailsOpen(true);
               }}
               sx={{
                 width: "100%",
                 minWidth: 1000,
+                "& .MuiDataGrid-row": {
+                  cursor: "pointer",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                  },
+                },
                 "& .MuiDataGrid-cell": {
                   fontSize: "0.875rem",
+                  lineHeight: 1.4,
+                  py: 1,
+                  display: "flex",
+                  alignItems: "center",
                 },
                 "& .MuiDataGrid-columnHeaders": {
                   fontSize: "0.875rem",
                   fontWeight: 600,
+                  lineHeight: 1.4,
+                },
+              }}
+              rowHeight={56}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: 25 },
                 },
               }}
             />
@@ -1299,6 +1332,29 @@ export const CalendarPage: React.FC = () => {
                   return next;
                 });
                 loadDatesWithAppointmentsForMonth(monthKey);
+              }
+            }}
+          />
+        )}
+
+        {/* Модальное окно деталей встречи */}
+        {selectedAppointment && (
+          <AppointmentDetailsModal
+            open={appointmentDetailsOpen}
+            appointment={selectedAppointment}
+            masterSlug={masterSlug}
+            onClose={() => {
+              setAppointmentDetailsOpen(false);
+              setSelectedAppointment(null);
+            }}
+            onUpdated={async () => {
+              // Перезагружаем встречи после переноса
+              await loadAppointments();
+              
+              // Обновляем кэш дат с встречами
+              if (selectedDate) {
+                const monthKey = format(selectedDate, "yyyy-MM");
+                await loadDatesWithAppointmentsForMonth(monthKey);
               }
             }}
           />

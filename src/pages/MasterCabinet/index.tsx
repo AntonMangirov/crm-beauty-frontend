@@ -551,25 +551,6 @@ export const ProfilePage: React.FC = () => {
             )}
           </Grid>
         )}
-
-        {/* Услуги */}
-        <Box sx={{ mb: { xs: 2, sm: 2.5 } }}>
-          <Typography
-            variant="h6"
-            sx={{
-              mb: { xs: 1.5, sm: 2 },
-              fontWeight: 600,
-              fontSize: { xs: "1.25rem", sm: "1.5rem" },
-            }}
-          >
-            Услуги ({master.stats.activeServices})
-          </Typography>
-
-          {/* Здесь нужно будет загрузить услуги через API */}
-          <Typography variant="body2" color="text.secondary">
-            Список услуг будет загружен из API /me/services
-          </Typography>
-        </Box>
       </Container>
 
       {/* Диалог редактирования профиля */}

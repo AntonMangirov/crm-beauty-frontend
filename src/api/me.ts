@@ -249,6 +249,20 @@ export const meApi = {
   },
 
   /**
+   * PATCH /api/me/appointments/:id/reschedule
+   * Перенести встречу (изменить время)
+   */
+  rescheduleAppointment: async (
+    id: string,
+    startAt: string
+  ): Promise<Appointment> => {
+    const response = await apiClient.patch(`/api/me/appointments/${id}/reschedule`, {
+      startAt,
+    });
+    return response.data;
+  },
+
+  /**
    * GET /api/me/services
    * Получить все услуги мастера
    */
