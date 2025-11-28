@@ -29,7 +29,7 @@ import { PickersDay } from "@mui/x-date-pickers/PickersDay";
 import { ru } from "date-fns/locale";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
-import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday } from "date-fns";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday, addMonths, subMonths } from "date-fns";
 import {
   CalendarToday as CalendarIcon,
   Check as CheckIcon,
@@ -70,8 +70,11 @@ export const CalendarPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [updatingStatus, setUpdatingStatus] = useState<Set<string>>(new Set());
-  const [datesWithAppointments, setDatesWithAppointments] = useState<Set<string>>(new Set());
-  const [datesWithCompletedPhotos, setDatesWithCompletedPhotos] = useState<Set<string>>(new Set());
+  // Кэш данных по месяцам: ключ - "yyyy-MM", значение - Set дат
+  const [datesWithAppointmentsCache, setDatesWithAppointmentsCache] = useState<Map<string, Set<string>>>(new Map());
+  const [datesWithCompletedPhotosCache, setDatesWithCompletedPhotosCache] = useState<Map<string, Set<string>>>(new Map());
+  // Отслеживаем, какие месяцы уже загружены
+  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
   const [photoUploaderOpen, setPhotoUploaderOpen] = useState(false);
   const [selectedAppointmentForPhotos, setSelectedAppointmentForPhotos] = useState<Appointment | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
@@ -105,9 +108,21 @@ export const CalendarPage: React.FC = () => {
   }, [selectedDate]);
 
   // Загружаем даты с записями при монтировании и при смене месяца
+  // Загружаем данные для текущего месяца и соседних (предыдущий и следующий)
   useEffect(() => {
     if (selectedDate) {
-      loadDatesWithAppointments();
+      const currentMonth = format(selectedDate, "yyyy-MM");
+      const prevMonth = format(subMonths(selectedDate, 1), "yyyy-MM");
+      const nextMonth = format(addMonths(selectedDate, 1), "yyyy-MM");
+      
+      // Загружаем данные для всех трех месяцев параллельно, если они еще не загружены
+      const monthsToLoad = [currentMonth, prevMonth, nextMonth].filter(
+        (month) => !loadedMonths.has(month)
+      );
+      
+      if (monthsToLoad.length > 0) {
+        Promise.all(monthsToLoad.map((month) => loadDatesWithAppointmentsForMonth(month)));
+      }
       // TODO: Загрузить выходные дни мастера из API
       // loadMasterDaysOff();
     }
@@ -122,26 +137,35 @@ export const CalendarPage: React.FC = () => {
     return masterDaysOff.has(dateKey);
   };
 
-  // Загружаем даты с записями для текущего месяца
-  const loadDatesWithAppointments = async () => {
-    if (!selectedDate) return;
+  // Загружаем даты с записями для конкретного месяца (формат "yyyy-MM")
+  const loadDatesWithAppointmentsForMonth = async (monthKey: string) => {
+    // Проверяем, не загружен ли уже этот месяц
+    if (loadedMonths.has(monthKey)) {
+      return;
+    }
 
     try {
-      const monthStart = startOfMonth(selectedDate);
-      const monthEnd = endOfMonth(selectedDate);
+      // Парсим месяц из строки "yyyy-MM"
+      const [yearStr, monthStr] = monthKey.split("-");
+      const year = parseInt(yearStr);
+      const month = parseInt(monthStr) - 1; // месяцы в JS начинаются с 0
       
-      const year = monthStart.getFullYear();
-      const month = monthStart.getMonth();
-      const day = monthStart.getDate();
+      const monthDate = new Date(year, month, 1);
+      const monthStart = startOfMonth(monthDate);
+      const monthEnd = endOfMonth(monthDate);
       
-      const utcMonthStart = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const startYear = monthStart.getFullYear();
+      const startMonth = monthStart.getMonth();
+      const startDay = monthStart.getDate();
+      
+      const utcMonthStart = new Date(Date.UTC(startYear, startMonth, startDay, 0, 0, 0, 0));
       
       const endYear = monthEnd.getFullYear();
       const endMonth = monthEnd.getMonth();
       const endDay = monthEnd.getDate();
       const utcMonthEnd = new Date(Date.UTC(endYear, endMonth, endDay, 23, 59, 59, 999));
 
-      // Сначала загружаем все записи за месяц для определения дат с записями
+      // Загружаем все записи за месяц для определения дат с записями
       const data = await meApi.getAppointments({
         from: utcMonthStart.toISOString(),
         to: utcMonthEnd.toISOString(),
@@ -155,7 +179,12 @@ export const CalendarPage: React.FC = () => {
         datesSet.add(dateKey);
       });
       
-      setDatesWithAppointments(datesSet);
+      // Сохраняем в кэш
+      setDatesWithAppointmentsCache((prev) => {
+        const next = new Map(prev);
+        next.set(monthKey, datesSet);
+        return next;
+      });
 
       // Теперь для каждой даты с завершенными записями загружаем данные за день,
       // чтобы правильно получить фотографии (они привязываются только при загрузке за день)
@@ -214,10 +243,39 @@ export const CalendarPage: React.FC = () => {
         }
       });
       
-      setDatesWithCompletedPhotos(datesWithPhotosSet);
+      // Сохраняем в кэш
+      setDatesWithCompletedPhotosCache((prev) => {
+        const next = new Map(prev);
+        next.set(monthKey, datesWithPhotosSet);
+        return next;
+      });
+      
+      // Отмечаем месяц как загруженный
+      setLoadedMonths((prev) => {
+        const next = new Set(prev);
+        next.add(monthKey);
+        return next;
+      });
     } catch (err) {
-      console.error("Ошибка загрузки дат с записями:", err);
+      console.error(`Ошибка загрузки дат с записями за ${monthKey}:`, err);
     }
+  };
+
+  // Объединяем все загруженные данные из кэша в единые Set для отображения
+  const getAllDatesWithAppointments = (): Set<string> => {
+    const result = new Set<string>();
+    datesWithAppointmentsCache.forEach((datesSet) => {
+      datesSet.forEach((date) => result.add(date));
+    });
+    return result;
+  };
+
+  const getAllDatesWithCompletedPhotos = (): Set<string> => {
+    const result = new Set<string>();
+    datesWithCompletedPhotosCache.forEach((datesSet) => {
+      datesSet.forEach((date) => result.add(date));
+    });
+    return result;
   };
 
   const loadAppointments = async () => {
@@ -247,8 +305,9 @@ export const CalendarPage: React.FC = () => {
 
       setAppointments(data);
       
-      // Обновляем даты с фотографиями на основе загруженных данных для выбранного дня
+      // Обновляем кэш дат с фотографиями на основе загруженных данных для выбранного дня
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
+      const monthKey = format(selectedDate, "yyyy-MM");
       const clientsWithPhotos = new Set<string>();
       
       data.forEach((apt) => {
@@ -264,9 +323,12 @@ export const CalendarPage: React.FC = () => {
       );
       
       if (hasCompletedWithPhotos) {
-        setDatesWithCompletedPhotos((prev) => {
-          const next = new Set(prev);
-          next.add(selectedDateKey);
+        setDatesWithCompletedPhotosCache((prev) => {
+          const next = new Map(prev);
+          const monthSet = next.get(monthKey) || new Set<string>();
+          const updatedSet = new Set(monthSet);
+          updatedSet.add(selectedDateKey);
+          next.set(monthKey, updatedSet);
           return next;
         });
       }
@@ -306,6 +368,18 @@ export const CalendarPage: React.FC = () => {
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
+      // Обновляем кэш для месяца этой записи
+      const appointmentDate = new Date(updatedAppointment.startAt);
+      const monthKey = format(appointmentDate, "yyyy-MM");
+      const dateKey = format(appointmentDate, "yyyy-MM-dd");
+      setDatesWithAppointmentsCache((prev) => {
+        const next = new Map(prev);
+        const monthSet = next.get(monthKey) || new Set<string>();
+        const updatedSet = new Set(monthSet);
+        updatedSet.add(dateKey);
+        next.set(monthKey, updatedSet);
+        return next;
+      });
       showSnackbar("Запись подтверждена", "success");
     } catch (err: any) {
       console.error("Ошибка подтверждения записи:", err);
@@ -341,6 +415,18 @@ export const CalendarPage: React.FC = () => {
       setAppointments((prev) =>
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
+      // Обновляем кэш для месяца этой записи (отмененные записи все еще показываются в календаре)
+      const appointmentDate = new Date(updatedAppointment.startAt);
+      const monthKey = format(appointmentDate, "yyyy-MM");
+      const dateKey = format(appointmentDate, "yyyy-MM-dd");
+      setDatesWithAppointmentsCache((prev) => {
+        const next = new Map(prev);
+        const monthSet = next.get(monthKey) || new Set<string>();
+        const updatedSet = new Set(monthSet);
+        updatedSet.add(dateKey);
+        next.set(monthKey, updatedSet);
+        return next;
+      });
       showSnackbar("Запись отменена", "success");
     } catch (err: any) {
       console.error("Ошибка отмены записи:", err);
@@ -369,7 +455,27 @@ export const CalendarPage: React.FC = () => {
         prev.map((apt) => (apt.id === appointmentId ? updatedAppointment : apt))
       );
       // Обновляем даты с фотографиями после завершения записи
-      await loadDatesWithAppointments();
+      const appointmentDate = new Date(updatedAppointment.startAt);
+      const monthKey = format(appointmentDate, "yyyy-MM");
+      const dateKey = format(appointmentDate, "yyyy-MM-dd");
+      
+      // Обновляем кэш дат с записями
+      setDatesWithAppointmentsCache((prev) => {
+        const next = new Map(prev);
+        const monthSet = next.get(monthKey) || new Set<string>();
+        const updatedSet = new Set(monthSet);
+        updatedSet.add(dateKey);
+        next.set(monthKey, updatedSet);
+        return next;
+      });
+      
+      // Сбрасываем кэш для этого месяца, чтобы перезагрузить данные о фотографиях
+      setLoadedMonths((prev) => {
+        const next = new Set(prev);
+        next.delete(monthKey);
+        return next;
+      });
+      await loadDatesWithAppointmentsForMonth(monthKey);
       showSnackbar("Запись завершена", "success");
     } catch (err: any) {
       console.error("Ошибка завершения записи:", err);
@@ -396,7 +502,16 @@ export const CalendarPage: React.FC = () => {
     if (selectedAppointmentForPhotos) {
       await loadAppointments();
       // Перезагружаем даты с фотографиями после обновления
-      await loadDatesWithAppointments();
+      if (selectedDate) {
+        const monthKey = format(selectedDate, "yyyy-MM");
+        // Сбрасываем кэш для этого месяца, чтобы перезагрузить данные
+        setLoadedMonths((prev) => {
+          const next = new Set(prev);
+          next.delete(monthKey);
+          return next;
+        });
+        await loadDatesWithAppointmentsForMonth(monthKey);
+      }
     }
   };
 
@@ -697,13 +812,31 @@ export const CalendarPage: React.FC = () => {
               label="Выберите дату"
               value={selectedDate}
               onChange={(newValue) => setSelectedDate(newValue)}
+              onMonthChange={(newMonth) => {
+                // Загружаем данные для нового месяца и соседних месяцев при переключении
+                if (newMonth) {
+                  const currentMonth = format(newMonth, "yyyy-MM");
+                  const prevMonth = format(subMonths(newMonth, 1), "yyyy-MM");
+                  const nextMonth = format(addMonths(newMonth, 1), "yyyy-MM");
+                  
+                  const monthsToLoad = [currentMonth, prevMonth, nextMonth].filter(
+                    (month) => !loadedMonths.has(month)
+                  );
+                  
+                  if (monthsToLoad.length > 0) {
+                    Promise.all(monthsToLoad.map((month) => loadDatesWithAppointmentsForMonth(month)));
+                  }
+                }
+              }}
               disabled={loading}
               slots={{
                 day: (props) => {
                   const { day, ...other } = props;
                   const dateKey = format(day, "yyyy-MM-dd");
-                  const hasAppointments = datesWithAppointments.has(dateKey);
-                  const hasCompletedPhotos = datesWithCompletedPhotos.has(dateKey);
+                  const allDatesWithAppointments = getAllDatesWithAppointments();
+                  const allDatesWithCompletedPhotos = getAllDatesWithCompletedPhotos();
+                  const hasAppointments = allDatesWithAppointments.has(dateKey);
+                  const hasCompletedPhotos = allDatesWithCompletedPhotos.has(dateKey);
                   const isTodayDate = isToday(day);
                   const isPastDate = isPast(startOfDay(day)) && !isTodayDate;
                   const isDayOffDate = isDayOff(day);
@@ -1141,7 +1274,16 @@ export const CalendarPage: React.FC = () => {
             masterSlug={masterSlug}
             onSuccess={() => {
               loadAppointments();
-              loadDatesWithAppointments();
+              if (selectedDate) {
+                const monthKey = format(selectedDate, "yyyy-MM");
+                // Сбрасываем кэш для этого месяца, чтобы перезагрузить данные
+                setLoadedMonths((prev) => {
+                  const next = new Set(prev);
+                  next.delete(monthKey);
+                  return next;
+                });
+                loadDatesWithAppointmentsForMonth(monthKey);
+              }
             }}
           />
         )}
