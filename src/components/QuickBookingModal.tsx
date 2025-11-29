@@ -16,12 +16,15 @@ import {
   IconButton,
   Collapse,
   Pagination,
+  Tooltip,
 } from "@mui/material";
 import {
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   AccessTime as TimeIcon,
+  Clear as ClearIcon,
+  Info as InfoIcon,
 } from "@mui/icons-material";
 import { DatePicker, TimePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -32,6 +35,7 @@ import { meApi, type Service, type ClientListItem } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
 import { getCachedServices, setCachedServices } from "../utils/servicesCache";
+import { logError } from "../utils/logger";
 
 interface QuickBookingModalProps {
   open: boolean;
@@ -46,18 +50,22 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   onSuccess,
   masterSlug,
 }) => {
-  const [name, setName] = useState("");
+  const [smartPaste, setSmartPaste] = useState(""); // Поле для умной вставки сообщения
+  const [name, setName] = useState(""); // Отдельное поле для имени клиента
   const [contact, setContact] = useState("");
   const [contactType, setContactType] = useState<"phone" | "telegram">("phone");
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [serviceSearch, setServiceSearch] = useState("");
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [selectedSlotISO, setSelectedSlotISO] = useState<string | null>(null); // ISO строка выбранного слота для точного сохранения
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [alternativeDays, setAlternativeDays] = useState<Array<{ date: Date; slots: string[] }>>([]);
+  const [alternativeDays, setAlternativeDays] = useState<
+    Array<{ date: Date; slots: string[] }>
+  >([]);
   const [slotsPage, setSlotsPage] = useState(1);
   const slotsPerPage = 12;
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
@@ -68,14 +76,21 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const [customPrice, setCustomPrice] = useState<number | null>(null);
   const [durationOverride, setDurationOverride] = useState<number | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
-  const [autoFilled, setAutoFilled] = useState<{ name?: boolean; contact?: boolean }>({});
-  const [lastManualAppointments, setLastManualAppointments] = useState<Array<{
-    id: string;
-    serviceId: string;
-    service: Service;
-    createdAt: string;
-  }>>([]);
-  const [topServices, setTopServices] = useState<Array<Service & { usageCount: number }>>([]);
+  const [autoFilled, setAutoFilled] = useState<{
+    name?: boolean;
+    contact?: boolean;
+  }>({});
+  const [lastManualAppointments, setLastManualAppointments] = useState<
+    Array<{
+      id: string;
+      serviceId: string;
+      service: Service;
+      createdAt: string;
+    }>
+  >([]);
+  const [topServices, setTopServices] = useState<
+    Array<Service & { usageCount: number }>
+  >([]);
   const [loadingLastAppointments, setLoadingLastAppointments] = useState(false);
   const { showSnackbar } = useSnackbar();
 
@@ -95,17 +110,17 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       // Сбрасываем форму при закрытии
       resetForm();
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Загружаем свободные слоты при изменении даты или услуги
+  // Загружаем свободные слоты при изменении даты или услуг
   useEffect(() => {
-    if (open && selectedDate && selectedService) {
+    if (open && selectedDate && selectedServices.length > 0) {
       loadAvailableSlots();
     } else {
       setAvailableSlots([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, selectedDate, selectedService]);
+  }, [open, selectedDate, selectedServices]);
 
   // Устанавливаем ближайший свободный слот при загрузке слотов
   useEffect(() => {
@@ -113,6 +128,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       const firstSlot = availableSlots[0];
       const slotDate = new Date(firstSlot);
       setSelectedTime(slotDate);
+      setSelectedSlotISO(firstSlot); // Сохраняем ISO строку для точного сохранения
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableSlots]);
@@ -122,32 +138,33 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const loadServices = async () => {
     try {
       setLoadingServices(true);
-      
+
       // Пытаемся получить услуги из кеша
       const cachedServices = getCachedServices();
       if (cachedServices) {
         const activeServices = cachedServices.filter((s) => s.isActive);
         setServices(activeServices);
         // Автоматически выбираем первую услугу, если есть
-        if (activeServices.length > 0 && !selectedService) {
-          setSelectedService(activeServices[0]);
+        if (activeServices.length > 0 && selectedServices.length === 0) {
+          setSelectedServices([activeServices[0]]);
         }
         setLoadingServices(false);
-        
+
         // Загружаем свежие данные в фоне для обновления кеша
-        meApi.getServices()
+        meApi
+          .getServices()
           .then((data) => {
             setCachedServices(data);
             const activeServices = data.filter((s) => s.isActive);
             setServices(activeServices);
           })
           .catch((err) => {
-            console.error("Ошибка фоновой загрузки услуг:", err);
+            logError("Ошибка фоновой загрузки услуг:", err);
             // Игнорируем ошибку, используем кеш
           });
         return;
       }
-      
+
       // Если кеша нет, загружаем с сервера
       const data = await meApi.getServices();
       const activeServices = data.filter((s) => s.isActive);
@@ -155,11 +172,11 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       // Сохраняем в кеш
       setCachedServices(data);
       // Автоматически выбираем первую услугу, если есть
-      if (activeServices.length > 0 && !selectedService) {
-        setSelectedService(activeServices[0]);
+      if (activeServices.length > 0 && selectedServices.length === 0) {
+        setSelectedServices([activeServices[0]]);
       }
     } catch (err) {
-      console.error("Ошибка загрузки услуг:", err);
+      logError("Ошибка загрузки услуг:", err);
       showSnackbar("Не удалось загрузить услуги", "error");
     } finally {
       setLoadingServices(false);
@@ -173,7 +190,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       const data = await meApi.getLastManualAppointments(3);
       setLastManualAppointments(data);
     } catch (err) {
-      console.error("Ошибка загрузки последних записей:", err);
+      logError("Ошибка загрузки последних записей:", err);
     } finally {
       setLoadingLastAppointments(false);
     }
@@ -185,40 +202,51 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       const data = await meApi.getTopServices(5, 90);
       setTopServices(data);
     } catch (err) {
-      console.error("Ошибка загрузки топ услуг:", err);
+      logError("Ошибка загрузки топ услуг:", err);
     }
   };
 
   // Обновляем выбранную услугу после загрузки последних записей и услуг
+  // Только если услуги еще не выбраны (не перезаписываем пользовательский выбор)
   useEffect(() => {
-    if (lastManualAppointments.length > 0 && !selectedService && services.length > 0) {
-      const lastService = services.find(s => s.id === lastManualAppointments[0].serviceId);
+    if (
+      lastManualAppointments.length > 0 &&
+      selectedServices.length === 0 &&
+      services.length > 0
+    ) {
+      const lastService = services.find(
+        (s) => s.id === lastManualAppointments[0].serviceId
+      );
       if (lastService) {
-        setSelectedService(lastService);
+        setSelectedServices([lastService]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastManualAppointments, services]);
 
-  // Загружает ближайшие свободные слоты для выбранной даты и услуги
+  // Загружает ближайшие свободные слоты для выбранной даты и услуг
   // Эндпоинт: GET /api/public/:slug/timeslots?date=YYYY-MM-DD&serviceId=xxx
   // Возвращает массив ISO строк, отсортированных по времени (первый - ближайший)
   // Бэкенд уже учитывает расписание, перерывы, буферы и существующие записи
+  // Используем первую услугу для расчета слотов (или можно использовать максимальную длительность)
   const loadAvailableSlots = async () => {
-    if (!selectedDate || !selectedService || !masterSlug) return;
+    if (!selectedDate || selectedServices.length === 0 || !masterSlug) return;
 
     try {
       setLoadingSlots(true);
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
       const day = selectedDate.getDate();
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
 
       // Загружаем доступные слоты (бэкенд уже учитывает все факторы)
+      // Используем первую услугу для расчета слотов
       const response = await mastersApi.getTimeslots(
         masterSlug,
         dateStr,
-        selectedService.id
+        selectedServices[0].id
       );
 
       // Слоты уже отсортированы по времени (первый - ближайший)
@@ -226,12 +254,12 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
       // Если нет свободных слотов, ищем альтернативные дни
       if (response.available.length === 0) {
-        loadAlternativeDays(selectedDate, selectedService);
+        loadAlternativeDays(selectedDate, selectedServices[0]);
       } else {
         setAlternativeDays([]);
       }
     } catch (err) {
-      console.error("Ошибка загрузки свободных слотов:", err);
+      logError("Ошибка загрузки свободных слотов:", err);
       setAvailableSlots([]);
       setAlternativeDays([]);
     } finally {
@@ -240,7 +268,10 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   };
 
   // Загружает альтернативные дни со свободными слотами
-  const loadAlternativeDays = async (currentDate: Date | null, service: Service | null) => {
+  const loadAlternativeDays = async (
+    currentDate: Date | null,
+    service: Service | null
+  ) => {
     if (!currentDate || !service || !masterSlug) return;
 
     try {
@@ -261,7 +292,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         const year = checkDate.getFullYear();
         const month = checkDate.getMonth();
         const day = checkDate.getDate();
-        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
 
         try {
           const response = await mastersApi.getTimeslots(
@@ -283,13 +316,13 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           }
         } catch (err) {
           // Игнорируем ошибки для отдельных дней
-          console.error(`Ошибка проверки дня ${dateStr}:`, err);
+          logError(`Ошибка проверки дня ${dateStr}:`, err);
         }
       }
 
       setAlternativeDays(alternatives);
     } catch (err) {
-      console.error("Ошибка загрузки альтернативных дней:", err);
+      logError("Ошибка загрузки альтернативных дней:", err);
       setAlternativeDays([]);
     } finally {
       setLoadingAlternatives(false);
@@ -298,12 +331,14 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
   const resetForm = () => {
     setName("");
+    setSmartPaste("");
     setContact("");
     setContactType("phone");
-    setSelectedService(null);
+    setSelectedServices([]);
     setServiceSearch("");
     setSelectedDate(null);
     setSelectedTime(null);
+    setSelectedSlotISO(null);
     setAvailableSlots([]);
     setError(null);
     setComment("");
@@ -313,16 +348,15 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     setAutoFilled({});
   };
 
-  // Пересчитываем цену при изменении услуги
+  // Пересчитываем цену при изменении услуг
   useEffect(() => {
-    if (selectedService) {
-      // При изменении услуги сбрасываем кастомную цену, чтобы показать цену новой услуги
+    if (selectedServices.length > 0) {
+      // При изменении услуг сбрасываем кастомную цену, чтобы показать цену новых услуг
       // Пользователь может установить свою цену вручную
       setCustomPrice(null);
       setDurationOverride(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedService]);
+  }, [selectedServices]);
 
   const formatPhoneDisplay = (phone: string): string => {
     let cleaned = phone.replace(/[^\d+]/g, "");
@@ -343,24 +377,337 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       if (digits.length <= 6)
         return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
       if (digits.length <= 8)
-        return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-      return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+        return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(
+          6
+        )}`;
+      return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(
+        6,
+        8
+      )}-${digits.slice(8, 10)}`;
     }
     return cleaned;
   };
 
-  // Поиск клиента по имени (с debounce 300 мс)
+  // Функция для распознавания ключевых слов дат и установки даты
+  const parseDateKeywords = (
+    text: string
+  ): { date: Date | null; textWithoutDate: string } => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Ключевые слова для дат
+    // Используем более простой и надежный подход: ищем слово как отдельное слово
+    // \b не работает с кириллицей, поэтому используем явные границы
+    const dateKeywords: Array<{
+      pattern: RegExp;
+      getOffset: (match: RegExpMatchArray) => number;
+    }> = [
+      // Ищем слово, перед которым начало строки, пробел или не буква/цифра
+      // И после которого пробел, не буква/цифра или конец строки
+      // Используем простой поиск слова с учетом границ
+      // Ищем слово, перед которым пробел, начало строки или не буква/цифра
+      // И после которого пробел, конец строки или не буква/цифра
+      // Для кириллицы используем явную проверку [^а-яёa-z0-9]
+      {
+        pattern: /(?:^|\s|[^а-яёa-z0-9])сегодня(?:\s|[^а-яёa-z0-9]|$)/i,
+        getOffset: () => 0,
+      },
+      {
+        pattern: /(?:^|\s|[^а-яёa-z0-9])завтра(?:\s|[^а-яёa-z0-9]|$)/i,
+        getOffset: () => 1,
+      },
+      {
+        pattern: /(?:^|\s|[^а-яёa-z0-9])послезавтра(?:\s|[^а-яёa-z0-9]|$)/i,
+        getOffset: () => 2,
+      },
+      {
+        pattern: /(?:^|\s|[^а-яёa-z0-9])через\s+день(?:\s|[^а-яёa-z0-9]|$)/i,
+        getOffset: () => 1,
+      },
+      {
+        pattern: /(?:^|\s|[^а-яёa-z0-9])через\s+(\d+)\s+дн/i,
+        getOffset: (match) => parseInt(match[1], 10),
+      },
+    ];
+
+    let foundDate: Date | null = null;
+    let textWithoutDate = text;
+
+    for (const { pattern, getOffset } of dateKeywords) {
+      const match = text.match(pattern);
+      if (match) {
+        const daysOffset = getOffset(match);
+        const targetDate = new Date(today);
+        targetDate.setDate(targetDate.getDate() + daysOffset);
+        foundDate = targetDate;
+
+        // Убираем ключевое слово из текста (включая возможные знаки препинания вокруг)
+        // Заменяем найденное совпадение на пробел, затем убираем лишние пробелы
+        textWithoutDate = text
+          .replace(pattern, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        break;
+      }
+    }
+
+    return { date: foundDate, textWithoutDate };
+  };
+
+  // Обработка умной вставки сообщения (с debounce 300 мс)
+  // Парсит сообщение и заполняет соответствующие поля
   useEffect(() => {
-    if (!name.trim() || name.trim().length < 2 || autoFilled.name) {
+    const pasteTrimmed = smartPaste.trim();
+
+    if (!pasteTrimmed || pasteTrimmed.length < 2) {
       return;
     }
 
     const searchTimeout = setTimeout(async () => {
       try {
         setSearchingClient(true);
-        const clients = await meApi.getClients({ name: name.trim() });
+
+        // Проверяем, содержит ли введенный текст телефон
+        // Паттерн для российских телефонов: +7, 7, 8 с последующими 10 цифрами (возможно с разделителями)
+        const phonePattern =
+          /(\+?7|8)[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d[\s\-()]*\d/;
+        const phoneMatch = pasteTrimmed.match(phonePattern);
+
+        // Проверяем, содержит ли текст Telegram username
+        const telegramPattern = /@[\w]+/;
+        const telegramMatch = pasteTrimmed.match(telegramPattern);
+
+        // Извлекаем текст без телефона и Telegram для поиска услуги и даты
+        // Важно: удаляем телефон точно по найденному совпадению
+        let textForParsing = pasteTrimmed;
+        if (phoneMatch) {
+          // Заменяем найденный телефон на пустую строку
+          textForParsing = textForParsing.replace(phoneMatch[0], "").trim();
+        }
+        if (telegramMatch) {
+          textForParsing = textForParsing.replace(telegramMatch[0], "").trim();
+        }
+
+        // Парсим ключевые слова дат
+        const { date: parsedDate, textWithoutDate } =
+          parseDateKeywords(textForParsing);
+
+        // Устанавливаем дату, если найдена
+        if (parsedDate) {
+          // Убеждаемся, что дата устанавливается правильно
+          const dateToSet = new Date(parsedDate);
+          dateToSet.setHours(0, 0, 0, 0);
+          setSelectedDate(dateToSet);
+          setSelectedTime(null);
+          setSelectedSlotISO(null);
+        }
+
+        // Используем текст без даты для поиска услуги
+        const searchText = textWithoutDate;
+
+        let clients: ClientListItem[] = [];
+
+        if (phoneMatch) {
+          // Если найден телефон, извлекаем его и ищем по телефону
+          // Извлекаем только цифры из найденного телефона
+          const phoneDigits = phoneMatch[0].replace(/[^\d]/g, "");
+          let cleanedPhone = phoneDigits;
+
+          // Нормализуем телефон: должен быть формат 7XXXXXXXXXX (11 цифр)
+          if (phoneDigits.startsWith("8") && phoneDigits.length === 11) {
+            // Заменяем 8 на 7
+            cleanedPhone = "7" + phoneDigits.slice(1);
+          } else if (phoneDigits.startsWith("7") && phoneDigits.length === 11) {
+            // Уже в правильном формате
+            cleanedPhone = phoneDigits;
+          } else if (phoneDigits.length === 10) {
+            // Если 10 цифр, добавляем 7 в начало
+            cleanedPhone = "7" + phoneDigits;
+          } else if (
+            phoneDigits.length === 11 &&
+            !phoneDigits.startsWith("7") &&
+            !phoneDigits.startsWith("8")
+          ) {
+            // Если 11 цифр, но не начинается с 7 или 8, добавляем 7 в начало
+            cleanedPhone = "7" + phoneDigits;
+          }
+
+          // Ищем по телефону
+          if (cleanedPhone.length >= 10) {
+            clients = await meApi.getClients({ phone: cleanedPhone });
+          }
+
+          // Если не найдено по телефону, пробуем поиск по имени (без телефона)
+          if (clients.length === 0) {
+            const nameWithoutPhone = pasteTrimmed
+              .replace(phonePattern, "")
+              .trim();
+            if (nameWithoutPhone.length >= 2) {
+              clients = await meApi.getClients({ name: nameWithoutPhone });
+            }
+          }
+        } else if (telegramMatch) {
+          // Если найден Telegram username, ищем по нему
+          // API getClients поддерживает поиск по telegramUsername через параметр phone
+          const telegramUsername = telegramMatch[0].replace(/^@/, "");
+          clients = await meApi.getClients({ phone: telegramUsername });
+          // Если не найдено, пробуем поиск по имени
+          if (clients.length === 0) {
+            const nameWithoutTelegram = pasteTrimmed
+              .replace(telegramPattern, "")
+              .trim();
+            if (nameWithoutTelegram.length >= 2) {
+              clients = await meApi.getClients({ name: nameWithoutTelegram });
+            }
+          }
+        } else {
+          // Если телефона и Telegram нет, ищем только по имени
+          clients = await meApi.getClients({ name: pasteTrimmed });
+        }
+
         if (clients.length > 0) {
           const client = clients[0]; // Берем первого найденного
+
+          // Подставляем имя в поле имени, если оно не заполнено
+          if (!name.trim()) {
+            setName(client.name);
+            setAutoFilled({ ...autoFilled, name: true });
+          }
+
+          // Подставляем контакт, если он не заполнен
+          if (!contact.trim()) {
+            if (client.phone) {
+              setContactType("phone");
+              const formatted = formatPhoneDisplay(client.phone);
+              setContact(formatted);
+              setAutoFilled({ ...autoFilled, contact: true });
+            } else if (client.telegramUsername) {
+              setContactType("telegram");
+              setContact(client.telegramUsername);
+              setAutoFilled({ ...autoFilled, contact: true });
+            }
+          }
+        } else {
+          // Если клиент не найден, но есть контакт в тексте, заполняем поле контакта
+          if (!contact.trim()) {
+            if (phoneMatch) {
+              // Если есть телефон в тексте, заполняем поле контакта
+              // Извлекаем только цифры из найденного телефона
+              const phoneDigits = phoneMatch[0].replace(/[^\d]/g, "");
+              let cleanedPhone = phoneDigits;
+
+              // Нормализуем телефон: должен быть формат 7XXXXXXXXXX (11 цифр)
+              if (phoneDigits.startsWith("8") && phoneDigits.length === 11) {
+                // Заменяем 8 на 7
+                cleanedPhone = "7" + phoneDigits.slice(1);
+              } else if (
+                phoneDigits.startsWith("7") &&
+                phoneDigits.length === 11
+              ) {
+                // Уже в правильном формате
+                cleanedPhone = phoneDigits;
+              } else if (phoneDigits.length === 10) {
+                // Если 10 цифр, добавляем 7 в начало
+                cleanedPhone = "7" + phoneDigits;
+              } else if (
+                phoneDigits.length === 11 &&
+                !phoneDigits.startsWith("7") &&
+                !phoneDigits.startsWith("8")
+              ) {
+                // Если 11 цифр, но не начинается с 7 или 8, добавляем 7 в начало
+                cleanedPhone = "7" + phoneDigits;
+              }
+
+              if (cleanedPhone.length >= 10) {
+                setContactType("phone");
+                // formatPhoneDisplay ожидает телефон в формате "7XXXXXXXXXX" или "+7XXXXXXXXXX"
+                // Передаем без "+", функция сама добавит его
+                const formatted = formatPhoneDisplay(cleanedPhone);
+                setContact(formatted);
+                setAutoFilled({ ...autoFilled, contact: true });
+              }
+            } else if (telegramMatch) {
+              // Если есть Telegram username в тексте, заполняем поле контакта
+              const telegramUsername = telegramMatch[0].replace(/^@/, "");
+              setContactType("telegram");
+              setContact(telegramUsername);
+              setAutoFilled({ ...autoFilled, contact: true });
+            }
+          }
+        }
+
+        // Ищем услугу по ключевым словам из текста (после телефона и даты)
+        // Работает независимо от того, найден ли клиент
+        // Используем текст без даты для поиска, если он достаточно длинный
+        // Иначе используем текст без телефона и Telegram (но с датой, если она была)
+        const finalSearchText =
+          searchText.length >= 2 ? searchText : textForParsing;
+        const finalHasSearchText = finalSearchText.length >= 2;
+
+        // Поиск услуги выполняется всегда, если есть текст для поиска
+        if (services.length > 0 && finalHasSearchText) {
+          // Ищем услугу, название которой содержит ключевые слова из текста
+          // Очищаем слова от знаков препинания перед поиском
+          const searchWords = finalSearchText
+            .toLowerCase()
+            .split(/\s+/)
+            .map((word) => word.replace(/[^\wа-яё]/gi, "")) // Удаляем все знаки препинания
+            .filter((word) => word.length >= 2);
+
+          if (searchWords.length > 0) {
+            // Ищем услугу, которая содержит хотя бы одно ключевое слово
+            const matchingService = services.find((service) => {
+              const serviceNameLower = service.name.toLowerCase();
+              // Проверяем, содержит ли название услуги хотя бы одно из ключевых слов
+              return searchWords.some((word) =>
+                serviceNameLower.includes(word)
+              );
+            });
+
+            if (matchingService) {
+              // Если найдена услуга по ключевому слову, заменяем все выбранные услуги на неё
+              // Это позволяет пользователю вставить текст и автоматически выбрать нужную услугу
+              setSelectedServices([matchingService]);
+            } else {
+              // Если в тексте есть слова для поиска, но услуга не найдена,
+              // очищаем выбранные услуги, чтобы пользователь мог выбрать нужную вручную
+              // Это предотвращает ситуацию, когда автоматически выбранная услуга остается,
+              // хотя в тексте её не было
+              setSelectedServices([]);
+            }
+          }
+        }
+      } catch (err) {
+        logError("Ошибка обработки умной вставки:", err);
+      } finally {
+        setSearchingClient(false);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(searchTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [smartPaste, services]);
+
+  // Поиск клиента по имени (с debounce 300 мс)
+  // Работает только для поля имени, не для умной вставки
+  useEffect(() => {
+    const nameTrimmed = name.trim();
+
+    // Если имя пустое или слишком короткое, не ищем
+    if (!nameTrimmed || nameTrimmed.length < 2 || autoFilled.name) {
+      return;
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      try {
+        setSearchingClient(true);
+
+        // Ищем клиента только по имени
+        const clients = await meApi.getClients({ name: nameTrimmed });
+
+        if (clients.length > 0) {
+          const client = clients[0]; // Берем первого найденного
+
           // Подставляем контакт, если он не заполнен
           if (!contact.trim()) {
             if (client.phone) {
@@ -376,7 +723,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           }
         }
       } catch (err) {
-        console.error("Ошибка поиска клиента:", err);
+        logError("Ошибка поиска клиента:", err);
       } finally {
         setSearchingClient(false);
       }
@@ -384,7 +731,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
 
     return () => clearTimeout(searchTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name]);
+  }, [name, services]);
 
   // Поиск клиента по контакту (обратная логика)
   useEffect(() => {
@@ -395,14 +742,15 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     const searchTimeout = setTimeout(async () => {
       try {
         setSearchingClient(true);
-        const searchQuery = contactType === "phone" 
-          ? contact.replace(/[^\d+]/g, "")
-          : contact.trim().replace(/^@/, "");
-        
-        const clients = await meApi.getClients({ 
-          phone: searchQuery 
+        const searchQuery =
+          contactType === "phone"
+            ? contact.replace(/[^\d+]/g, "")
+            : contact.trim().replace(/^@/, "");
+
+        const clients = await meApi.getClients({
+          phone: searchQuery,
         });
-        
+
         if (clients.length > 0) {
           const client = clients[0]; // Берем первого найденного
           // Подставляем имя, если оно не заполнено
@@ -412,7 +760,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           }
         }
       } catch (err) {
-        console.error("Ошибка поиска клиента:", err);
+        logError("Ошибка поиска клиента:", err);
       } finally {
         setSearchingClient(false);
       }
@@ -456,8 +804,8 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
       return;
     }
 
-    if (!selectedService) {
-      setError("Выберите услугу");
+    if (selectedServices.length === 0) {
+      setError("Выберите хотя бы одну услугу");
       return;
     }
 
@@ -480,105 +828,168 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     }
 
     // Формируем дату и время начала записи в UTC
-    // Используем локальные компоненты даты и создаём UTC дату
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    const day = selectedDate.getDate();
-    const hours = selectedTime.getHours();
-    const minutes = selectedTime.getMinutes();
+    let startAtISO: string;
 
-    // Создаём UTC дату с UTC временем (API ожидает UTC)
-    const startDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+    // Если слот был выбран из списка доступных слотов, используем его ISO строку напрямую
+    // Это гарантирует точное соответствие времени, которое вернул API
+    if (selectedSlotISO) {
+      // Проверяем, что выбранный слот все еще доступен
+      if (!availableSlots.includes(selectedSlotISO)) {
+        setError(
+          "Выбранное время больше не доступно. Пожалуйста, выберите другое время."
+        );
+        // Обновляем список слотов
+        loadAvailableSlots();
+        return;
+      }
+      startAtISO = selectedSlotISO;
+    } else {
+      // Если время выбрано вручную через TimePicker, преобразуем локальное время в UTC
+      // Используем локальные компоненты даты и создаём UTC дату
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
+      const hours = selectedTime.getHours();
+      const minutes = selectedTime.getMinutes();
+
+      // Создаём UTC дату с UTC временем (API ожидает UTC)
+      const startDateTime = new Date(
+        Date.UTC(year, month, day, hours, minutes, 0, 0)
+      );
+      startAtISO = startDateTime.toISOString();
+    }
 
     // Проверяем, что время в будущем
+    const startDateTime = new Date(startAtISO);
     if (!isAfter(startDateTime, new Date())) {
       setError("Выберите время в будущем");
       return;
     }
 
-    // Формируем ISO строку для отправки на сервер
-    const startAtISO = startDateTime.toISOString();
-
     try {
       setSaving(true);
 
-      const bookingData: {
-        name?: string;
-        serviceId: string;
-        startAt: string;
-        phone?: string;
-        telegramUsername?: string;
-        comment?: string;
-        source?: 'MANUAL' | 'PHONE' | 'WEB' | 'TELEGRAM' | 'VK' | 'WHATSAPP';
-        price?: number;
-        durationOverride?: number;
-      } = {
-        serviceId: selectedService.id,
-        startAt: startAtISO,
-        source: 'MANUAL', // Устанавливаем source=MANUAL для записей из ЛК мастера
-      };
+      // Создаем записи для всех выбранных услуг последовательно
+      let currentStartAt = new Date(startAtISO);
+      const createdAppointments: string[] = [];
 
-      // Добавляем имя только если оно заполнено
-      if (name.trim()) {
-        bookingData.name = name.trim();
+      for (let i = 0; i < selectedServices.length; i++) {
+        const service = selectedServices[i];
+
+        // Для первой услуги используем выбранное время
+        // Для последующих - добавляем длительность предыдущей услуги
+        if (i > 0) {
+          const previousService = selectedServices[i - 1];
+          const previousDuration =
+            durationOverride && i === 1
+              ? durationOverride
+              : previousService.durationMin;
+          currentStartAt = new Date(
+            currentStartAt.getTime() + previousDuration * 60000
+          );
+        }
+
+        const bookingData: {
+          name: string;
+          serviceId: string;
+          startAt: string;
+          phone?: string;
+          telegramUsername?: string;
+          comment?: string;
+          source?: "MANUAL" | "PHONE" | "WEB" | "TELEGRAM" | "VK" | "WHATSAPP";
+          price?: number;
+          durationOverride?: number;
+        } = {
+          name: name.trim() || "Клиент", // Имя обязательно, используем "Клиент" если не указано
+          serviceId: service.id,
+          startAt: currentStartAt.toISOString(),
+          source: "MANUAL", // Устанавливаем source=MANUAL для записей из ЛК мастера
+        };
+
+        // Добавляем контакт только для первой записи
+        if (i === 0) {
+          if (contactType === "phone") {
+            const phoneDigits = contact.replace(/[^\d]/g, "");
+            bookingData.phone = `+${phoneDigits}`;
+          } else {
+            bookingData.telegramUsername = contact.trim();
+          }
+        }
+
+        // Добавляем комментарий только для первой записи
+        if (comment.trim() && i === 0) {
+          bookingData.comment = comment.trim();
+        }
+
+        // Добавляем кастомную цену, если указана (только для первой услуги)
+        if (customPrice !== null && customPrice > 0 && i === 0) {
+          bookingData.price = customPrice;
+        }
+
+        // Добавляем кастомную длительность, если указана (только для первой услуги)
+        if (durationOverride !== null && durationOverride > 0 && i === 0) {
+          bookingData.durationOverride = durationOverride;
+        }
+
+        // Создание записи через публичный API
+        // Эндпоинт: POST /api/public/:slug/book
+        // В dev режиме reCAPTCHA не требуется, в production требуется
+        const response = await mastersApi.bookAppointment(
+          masterSlug,
+          bookingData
+        );
+        createdAppointments.push(response.id);
       }
 
-      if (contactType === "phone") {
-        const phoneDigits = contact.replace(/[^\d]/g, "");
-        bookingData.phone = `+${phoneDigits}`;
-      } else {
-        bookingData.telegramUsername = contact.trim();
-      }
-
-      if (comment.trim()) {
-        bookingData.comment = comment.trim();
-      }
-
-      // Добавляем кастомную цену, если указана
-      if (customPrice !== null && customPrice > 0) {
-        bookingData.price = customPrice;
-      }
-
-      // Добавляем кастомную длительность, если указана
-      if (durationOverride !== null && durationOverride > 0) {
-        bookingData.durationOverride = durationOverride;
-      }
-
-      // Создание записи через публичный API
-      // Эндпоинт: POST /api/public/:slug/book
-      // В dev режиме reCAPTCHA не требуется, в production требуется
-      await mastersApi.bookAppointment(masterSlug, bookingData);
-
-      showSnackbar("Запись успешно создана!", "success");
+      const successMessage =
+        selectedServices.length > 1
+          ? `Создано ${selectedServices.length} записей!`
+          : "Запись успешно создана!";
+      showSnackbar(successMessage, "success");
       resetForm();
       onClose();
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
-      console.error("Ошибка создания записи:", err);
+    } catch (err: unknown) {
+      logError("Ошибка создания записи:", err);
+      const errResponse = err as {
+        response?: {
+          status?: number;
+          data?: { code?: string; message?: string; error?: string };
+        };
+      };
       const errorMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
+        errResponse?.response?.data?.message ||
+        errResponse?.response?.data?.error ||
         "Не удалось создать запись";
-      const errorCode = err?.response?.data?.code;
+      const errorCode = errResponse?.response?.data?.code;
 
       // Логируем ошибки для разработчиков
-      if (errorCode === 'TIME_SLOT_CONFLICT' || errorMessage.includes('занято')) {
-        console.error('[DEV_ANALYTICS] invalidTimeslot:', {
+      if (
+        errorCode === "TIME_SLOT_CONFLICT" ||
+        errorMessage.includes("занято")
+      ) {
+        logError("[DEV_ANALYTICS] invalidTimeslot:", {
           masterSlug,
-          serviceId: selectedService.id,
+          serviceIds: selectedServices.map((s) => s.id),
           startAt: startAtISO,
           error: errorMessage,
         });
-      } else if (errorCode === 'SERVICE_NOT_FOUND' || errorMessage.includes('Услуга не найдена')) {
-        console.error('[DEV_ANALYTICS] noServices:', {
+      } else if (
+        errorCode === "SERVICE_NOT_FOUND" ||
+        errorMessage.includes("Услуга не найдена")
+      ) {
+        logError("[DEV_ANALYTICS] noServices:", {
           masterSlug,
-          serviceId: selectedService.id,
+          serviceIds: selectedServices.map((s) => s.id),
           error: errorMessage,
         });
-      } else if (errorCode === 'VALIDATION_ERROR' || err?.response?.status === 400) {
-        console.error('[DEV_ANALYTICS] validationFailed:', {
+      } else if (
+        errorCode === "VALIDATION_ERROR" ||
+        errResponse?.response?.status === 400
+      ) {
+        logError("[DEV_ANALYTICS] validationFailed:", {
           masterSlug,
           error: errorMessage,
           errorCode,
@@ -586,7 +997,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
             hasName: !!name.trim(),
             hasContact: !!contact.trim(),
             contactType,
-            hasService: !!selectedService,
+            servicesCount: selectedServices.length,
             hasDate: !!selectedDate,
             hasTime: !!selectedTime,
           },
@@ -603,6 +1014,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
   const handleQuickSlotClick = (slotISO: string) => {
     const slotDate = new Date(slotISO);
     setSelectedTime(slotDate);
+    setSelectedSlotISO(slotISO); // Сохраняем ISO строку для точного сохранения
   };
 
   const filteredServices = services.filter((service) =>
@@ -649,7 +1061,102 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
           )}
 
           <Grid container spacing={2}>
-            {/* Имя */}
+            {/* Поле умной вставки */}
+            <Grid size={{ xs: 12 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 0.5,
+                  mb: 0.5,
+                }}
+              >
+                <Typography variant="body2" sx={{ flex: 1 }}>
+                  Автоопределение
+                </Typography>
+                <Tooltip
+                  title={
+                    <Box sx={{ p: 0.5 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ mb: 0.5, fontWeight: 600 }}
+                      >
+                        Умная вставка
+                      </Typography>
+                      <Typography variant="caption" component="div">
+                        Просто скопируйте сообщение клиента в это поле — система
+                        автоматически распознает:
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        component="div"
+                        sx={{ mt: 0.5 }}
+                      >
+                        • Телефон клиента
+                      </Typography>
+                      <Typography variant="caption" component="div">
+                        • Название услуги
+                      </Typography>
+                      <Typography variant="caption" component="div">
+                        • Дату (сегодня, завтра, послезавтра)
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        component="div"
+                        sx={{ mt: 0.5, fontStyle: "italic" }}
+                      >
+                        Вам останется только проверить данные и создать запись!
+                      </Typography>
+                    </Box>
+                  }
+                  arrow
+                  placement="top"
+                >
+                  <InfoIcon
+                    sx={{
+                      fontSize: 18,
+                      color: "text.secondary",
+                      cursor: "help",
+                    }}
+                  />
+                </Tooltip>
+              </Box>
+              <TextField
+                fullWidth
+                value={smartPaste}
+                onChange={(e) => {
+                  setSmartPaste(e.target.value);
+                }}
+                placeholder="Вставьте сообщение клиента целиком"
+                autoFocus
+                InputProps={{
+                  endAdornment: (
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      {searchingClient && (
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                      )}
+                      {smartPaste.trim().length > 0 && (
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setSmartPaste("");
+                          }}
+                          sx={{ p: 0.5 }}
+                          title="Очистить поле"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  ),
+                }}
+                helperText="Вставьте сообщение — система автоматически заполнит все поля"
+              />
+            </Grid>
+
+            {/* Имя клиента */}
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
@@ -663,18 +1170,36 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                   }
                 }}
                 placeholder="Введите имя клиента (необязательно)"
-                autoFocus
                 InputProps={{
-                  endAdornment: searchingClient ? (
-                    <CircularProgress size={16} sx={{ mr: 1 }} />
-                  ) : autoFilled.name ? (
-                    <Chip
-                      label="Найдено"
-                      size="small"
-                      color="success"
-                      sx={{ height: 20, fontSize: "0.7rem" }}
-                    />
-                  ) : null,
+                  endAdornment: (
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      {searchingClient && !smartPaste.trim() ? (
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                      ) : autoFilled.name ? (
+                        <Chip
+                          label="Найдено"
+                          size="small"
+                          color="success"
+                          sx={{ height: 20, fontSize: "0.7rem", mr: 0.5 }}
+                        />
+                      ) : null}
+                      {name.trim().length > 0 && (
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setName("");
+                            setAutoFilled({ ...autoFilled, name: false });
+                          }}
+                          sx={{ p: 0.5 }}
+                          title="Очистить поле"
+                        >
+                          <ClearIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  ),
                 }}
                 helperText={
                   autoFilled.name
@@ -698,7 +1223,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                   Телефон
                 </Button>
                 <Button
-                  variant={contactType === "telegram" ? "contained" : "outlined"}
+                  variant={
+                    contactType === "telegram" ? "contained" : "outlined"
+                  }
                   size="small"
                   onClick={() => handleContactTypeChange("telegram")}
                   sx={{ textTransform: "none" }}
@@ -723,9 +1250,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 }}
                 required
                 placeholder={
-                  contactType === "phone"
-                    ? "+7 (999) 123-45-67"
-                    : "username"
+                  contactType === "phone" ? "+7 (999) 123-45-67" : "username"
                 }
                 InputProps={{
                   startAdornment:
@@ -765,24 +1290,34 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                     size="small"
                     onClick={() => {
                       const lastAppointment = lastManualAppointments[0];
-                      const service = services.find(s => s.id === lastAppointment.serviceId);
-                      if (service) {
-                        setSelectedService(service);
+                      const service = services.find(
+                        (s) => s.id === lastAppointment.serviceId
+                      );
+                      if (
+                        service &&
+                        !selectedServices.find((s) => s.id === service.id)
+                      ) {
+                        setSelectedServices([...selectedServices, service]);
                         setServiceSearch("");
                       }
                     }}
                     sx={{ textTransform: "none", fontSize: "0.875rem" }}
                     disabled={loadingLastAppointments}
                   >
-                    🔄 Повторить прошлую услугу: {lastManualAppointments[0].service.name}
+                    🔄 Повторить прошлую услугу:{" "}
+                    {lastManualAppointments[0].service.name}
                   </Button>
                 </Box>
               )}
-              
+
               {/* Топ-5 услуг */}
               {topServices.length > 0 && (
                 <Box sx={{ mb: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 0.5, display: "block" }}
+                  >
                     Популярные услуги:
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
@@ -792,9 +1327,19 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                         label={`${service.name} (${service.usageCount})`}
                         size="small"
                         onClick={() => {
-                          const fullService = services.find(s => s.id === service.id);
-                          if (fullService) {
-                            setSelectedService(fullService);
+                          const fullService = services.find(
+                            (s) => s.id === service.id
+                          );
+                          if (
+                            fullService &&
+                            !selectedServices.find(
+                              (s) => s.id === fullService.id
+                            )
+                          ) {
+                            setSelectedServices([
+                              ...selectedServices,
+                              fullService,
+                            ]);
                             setServiceSearch("");
                           }
                         }}
@@ -802,10 +1347,22 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                           cursor: "pointer",
                           fontSize: "0.75rem",
                           height: "24px",
-                          bgcolor: selectedService?.id === service.id ? "primary.main" : "action.selected",
-                          color: selectedService?.id === service.id ? "primary.contrastText" : "text.primary",
+                          bgcolor: selectedServices.find(
+                            (s) => s.id === service.id
+                          )
+                            ? "primary.main"
+                            : "action.selected",
+                          color: selectedServices.find(
+                            (s) => s.id === service.id
+                          )
+                            ? "primary.contrastText"
+                            : "text.primary",
                           "&:hover": {
-                            bgcolor: selectedService?.id === service.id ? "primary.dark" : "action.hover",
+                            bgcolor: selectedServices.find(
+                              (s) => s.id === service.id
+                            )
+                              ? "primary.dark"
+                              : "action.hover",
                           },
                         }}
                       />
@@ -813,14 +1370,45 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                   </Box>
                 </Box>
               )}
-              
+
+              {/* Выбранные услуги */}
+              {selectedServices.length > 0 && (
+                <Box
+                  sx={{ mb: 1.5, display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                >
+                  {selectedServices.map((service) => (
+                    <Chip
+                      key={service.id}
+                      label={`${service.name} (${service.price.toLocaleString(
+                        "ru-RU"
+                      )} ₽, ${service.durationMin} мин)`}
+                      onDelete={() => {
+                        setSelectedServices(
+                          selectedServices.filter((s) => s.id !== service.id)
+                        );
+                      }}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              )}
+
               <Autocomplete
-                options={filteredServices}
+                options={filteredServices.filter(
+                  (s) => !selectedServices.find((sel) => sel.id === s.id)
+                )}
                 getOptionLabel={(option) => option.name}
-                value={selectedService}
+                value={null}
                 onChange={(_, newValue) => {
-                  setSelectedService(newValue);
-                  setServiceSearch("");
+                  if (
+                    newValue &&
+                    !selectedServices.find((s) => s.id === newValue.id)
+                  ) {
+                    setSelectedServices([...selectedServices, newValue]);
+                    setServiceSearch("");
+                  }
                 }}
                 inputValue={serviceSearch}
                 onInputChange={(_, newInputValue) => {
@@ -830,9 +1418,13 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Услуга"
-                    required
+                    label="Добавить услугу"
                     placeholder="Выберите или введите для поиска"
+                    helperText={
+                      selectedServices.length === 0
+                        ? "Выберите хотя бы одну услугу"
+                        : undefined
+                    }
                   />
                 )}
                 renderOption={(props, option) => {
@@ -861,6 +1453,7 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 onChange={(newValue) => {
                   setSelectedDate(newValue);
                   setSelectedTime(null);
+                  setSelectedSlotISO(null); // Сбрасываем выбранный слот при смене даты
                 }}
                 minDate={new Date()}
                 slotProps={{
@@ -876,7 +1469,10 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
               <TimePicker
                 label="Время"
                 value={selectedTime}
-                onChange={(newValue) => setSelectedTime(newValue)}
+                onChange={(newValue) => {
+                  setSelectedTime(newValue);
+                  setSelectedSlotISO(null); // Сбрасываем выбранный слот при ручном выборе времени
+                }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
@@ -887,14 +1483,19 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
             </Grid>
 
             {/* Быстрые кнопки со свободными слотами */}
-            {selectedDate && selectedService && (
+            {selectedDate && selectedServices.length > 0 && (
               <Grid size={{ xs: 12 }}>
                 <Box sx={{ mb: 1 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ mb: 1, fontWeight: 600 }}
+                  >
                     Быстрый выбор времени
                   </Typography>
                   {loadingSlots ? (
-                    <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                    <Box
+                      sx={{ display: "flex", justifyContent: "center", py: 1 }}
+                    >
                       <CircularProgress size={20} />
                     </Box>
                   ) : availableSlots.length === 0 && !loadingAlternatives ? (
@@ -904,11 +1505,18 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                       </Alert>
                       {alternativeDays.length > 0 && (
                         <Box>
-                          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ mb: 1, fontWeight: 600 }}
+                          >
                             Ближайшие дни со свободными слотами:
                           </Typography>
                           {alternativeDays.map((altDay) => {
-                            const dateStr = format(altDay.date, "dd.MM.yyyy (EEEE)", { locale: ru });
+                            const dateStr = format(
+                              altDay.date,
+                              "dd.MM.yyyy (EEEE)",
+                              { locale: ru }
+                            );
                             return (
                               <Button
                                 key={altDay.date.toISOString()}
@@ -937,13 +1545,18 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                         {/* Показываем доступные слоты с пагинацией */}
                         {availableSlots
-                          .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                          .slice(
+                            (slotsPage - 1) * slotsPerPage,
+                            slotsPage * slotsPerPage
+                          )
                           .map((slotISO) => {
                             const slotDate = new Date(slotISO);
                             const timeStr = format(slotDate, "HH:mm");
                             const isSelected =
                               selectedTime &&
-                              Math.abs(selectedTime.getTime() - slotDate.getTime()) < 60000;
+                              Math.abs(
+                                selectedTime.getTime() - slotDate.getTime()
+                              ) < 60000;
 
                             return (
                               <Button
@@ -963,9 +1576,17 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                           })}
                       </Box>
                       {availableSlots.length > slotsPerPage && (
-                        <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            mt: 2,
+                          }}
+                        >
                           <Pagination
-                            count={Math.ceil(availableSlots.length / slotsPerPage)}
+                            count={Math.ceil(
+                              availableSlots.length / slotsPerPage
+                            )}
                             page={slotsPage}
                             onChange={(_, value) => setSlotsPage(value)}
                             size="small"
@@ -984,7 +1605,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
               <Button
                 fullWidth
                 onClick={() => setExpandedSettings(!expandedSettings)}
-                endIcon={expandedSettings ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                endIcon={
+                  expandedSettings ? <ExpandLessIcon /> : <ExpandMoreIcon />
+                }
                 sx={{
                   textTransform: "none",
                   justifyContent: "space-between",
@@ -994,7 +1617,9 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                 Расширенные настройки
               </Button>
               <Collapse in={expandedSettings}>
-                <Box sx={{ mt: 2, pl: 2, borderLeft: 2, borderColor: "divider" }}>
+                <Box
+                  sx={{ mt: 2, pl: 2, borderLeft: 2, borderColor: "divider" }}
+                >
                   <TextField
                     fullWidth
                     label="Комментарий"
@@ -1015,13 +1640,17 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                       setCustomPrice(value ? parseFloat(value) : null);
                     }}
                     placeholder={
-                      selectedService
-                        ? `По умолчанию: ${selectedService.price.toLocaleString("ru-RU")} ₽`
+                      selectedServices.length > 0
+                        ? `По умолчанию: ${selectedServices
+                            .reduce((sum, s) => sum + s.price, 0)
+                            .toLocaleString("ru-RU")} ₽`
                         : "Укажите цену"
                     }
                     helperText={
-                      selectedService && customPrice === null
-                        ? `Текущая цена услуги: ${selectedService.price.toLocaleString("ru-RU")} ₽`
+                      selectedServices.length > 0 && customPrice === null
+                        ? `Общая цена услуг: ${selectedServices
+                            .reduce((sum, s) => sum + s.price, 0)
+                            .toLocaleString("ru-RU")} ₽`
                         : undefined
                     }
                     InputProps={{
@@ -1039,15 +1668,24 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
                       setDurationOverride(value ? parseInt(value, 10) : null);
                     }}
                     placeholder={
-                      selectedService
-                        ? `По умолчанию: ${selectedService.durationMin} мин`
+                      selectedServices.length > 0
+                        ? `По умолчанию: ${selectedServices.reduce(
+                            (sum, s) => sum + s.durationMin,
+                            0
+                          )} мин`
                         : "Укажите длительность"
                     }
                     helperText={
-                      selectedService && durationOverride === null
-                        ? `Текущая длительность услуги: ${selectedService.durationMin} мин`
+                      selectedServices.length > 0 && durationOverride === null
+                        ? `Общая длительность услуг: ${selectedServices.reduce(
+                            (sum, s) => sum + s.durationMin,
+                            0
+                          )} мин`
                         : durationOverride
-                        ? `Будет использовано: ${durationOverride} мин вместо ${selectedService?.durationMin || 0} мин`
+                        ? `Будет использовано: ${durationOverride} мин вместо ${selectedServices.reduce(
+                            (sum, s) => sum + s.durationMin,
+                            0
+                          )} мин`
                         : undefined
                     }
                     InputProps={{
@@ -1061,7 +1699,11 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={onClose} disabled={saving} sx={{ textTransform: "none" }}>
+          <Button
+            onClick={onClose}
+            disabled={saving}
+            sx={{ textTransform: "none" }}
+          >
             Отмена
           </Button>
           <Button
@@ -1084,4 +1726,3 @@ export const QuickBookingModal: React.FC<QuickBookingModalProps> = ({
     </LocalizationProvider>
   );
 };
-

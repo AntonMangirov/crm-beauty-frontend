@@ -3,6 +3,7 @@
  */
 
 import { loadRecaptchaScript } from './loadRecaptcha';
+import { logError } from './logger';
 
 declare global {
   interface Window {
@@ -56,7 +57,7 @@ export async function getRecaptchaToken(
     });
 
     if (!window.grecaptcha) {
-      console.error('[reCAPTCHA] grecaptcha не загружен после ожидания');
+      logError('[reCAPTCHA] grecaptcha не загружен после ожидания');
       return null;
     }
   }
@@ -70,13 +71,13 @@ export async function getRecaptchaToken(
             resolve(token);
           })
           .catch((error) => {
-            console.error('[reCAPTCHA] Ошибка получения токена:', error);
+            logError('[reCAPTCHA] Ошибка получения токена:', error);
             reject(error);
           });
       });
     });
   } catch (error) {
-    console.error('[reCAPTCHA] Ошибка:', error);
+    logError('[reCAPTCHA] Ошибка:', error);
     return null;
   }
 }

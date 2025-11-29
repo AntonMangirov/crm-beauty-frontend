@@ -57,7 +57,7 @@ export const SettingsPage: React.FC = () => {
       setNewEmail(masterData.email);
       setNewPhone(masterData.phone || "");
     } catch (err) {
-      console.error("Ошибка загрузки профиля:", err);
+      logError("Ошибка загрузки профиля:", err);
       showSnackbar("Не удалось загрузить данные", "error");
     } finally {
       setLoading(false);

@@ -23,6 +23,7 @@ import type {
   DaySchedule,
   Break,
 } from "../../types/schedule";
+import { logError } from "../../utils/logger";
 
 export const SchedulePage: React.FC = () => {
   const [schedule, setSchedule] = useState<MasterSchedule | null>(null);
@@ -41,7 +42,7 @@ export const SchedulePage: React.FC = () => {
       const response = await meApi.getSchedule();
       setSchedule(response.schedule);
     } catch (err: unknown) {
-      console.error("Ошибка загрузки расписания:", err);
+      logError("Ошибка загрузки расписания:", err);
       
       // Если эндпоинт не найден (404), инициализируем пустое расписание
       const axiosError = err as { response?: { status?: number } };
@@ -204,7 +205,7 @@ export const SchedulePage: React.FC = () => {
         setSchedule(response.schedule);
       }
     } catch (err: unknown) {
-      console.error("Ошибка сохранения расписания:", err);
+      logError("Ошибка сохранения расписания:", err);
 
       // Обработка различных типов ошибок
       const axiosError = err as {
@@ -233,7 +234,7 @@ export const SchedulePage: React.FC = () => {
           
           // Если есть детали ошибки, показываем их
           if (data?.details) {
-            console.error("Детали ошибки валидации:", data.details);
+            logError("Детали ошибки валидации:", data.details);
           }
         }
         // Обработка ошибок авторизации (401)

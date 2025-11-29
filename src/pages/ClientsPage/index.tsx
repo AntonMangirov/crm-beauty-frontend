@@ -31,6 +31,7 @@ import {
 import { meApi, type ClientListItem } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { ClientHistoryModal } from "../../components/ClientHistoryModal";
+import { logError } from "../../utils/logger";
 
 export const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<ClientListItem[]>([]);
@@ -60,7 +61,7 @@ export const ClientsPage: React.FC = () => {
       setAllClients(clientsData);
       setClients(clientsData);
     } catch (err) {
-      console.error("Ошибка загрузки клиентов:", err);
+      logError("Ошибка загрузки клиентов:", err);
       setError("Не удалось загрузить список клиентов");
       showSnackbar("Не удалось загрузить список клиентов", "error");
     } finally {

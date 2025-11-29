@@ -30,6 +30,7 @@ import { PhotoViewer } from "./PhotoViewer";
 import type { Master } from "../api/masters";
 import { normalizeImageUrl } from "../utils/imageUrl";
 import { reviewsApi, type Review } from "../api/reviews";
+import { logError } from "../utils/logger";
 
 interface MasterProfileProps {
   master: Master;
@@ -129,7 +130,7 @@ export const MasterProfile: React.FC<MasterProfileProps> = ({
       const reviewsData = await reviewsApi.getByMasterSlug(masterSlug);
       setReviews(reviewsData);
     } catch (err) {
-      console.error("Ошибка загрузки отзывов:", err);
+      logError("Ошибка загрузки отзывов:", err);
       setReviewsError("Не удалось загрузить отзывы");
     } finally {
       setReviewsLoading(false);

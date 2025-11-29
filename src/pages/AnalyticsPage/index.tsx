@@ -21,6 +21,7 @@ import {
   Star as StarIcon,
 } from "@mui/icons-material";
 import { meApi, type AnalyticsResponse, type Appointment } from "../../api/me";
+import { logError } from "../../utils/logger";
 import {
   startOfMonth,
   endOfMonth,
@@ -122,7 +123,7 @@ export const AnalyticsPage: React.FC = () => {
       setAnalytics(analyticsData);
       setAppointments(appointmentsData);
     } catch (err) {
-      console.error("Ошибка загрузки аналитики:", err);
+      logError("Ошибка загрузки аналитики:", err);
       setError("Не удалось загрузить аналитику");
     } finally {
       setLoading(false);

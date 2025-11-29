@@ -21,6 +21,7 @@ import {
 } from "@mui/icons-material";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
+import { logError } from "../utils/logger";
 
 interface PhotoUploaderProps {
   open: boolean;
@@ -145,7 +146,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       onPhotosUpdated?.();
       onClose();
     } catch (err: any) {
-      console.error("Ошибка загрузки фото:", err);
+      logError("Ошибка загрузки фото:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
@@ -168,7 +169,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       showSnackbar("Фото удалено", "success");
       onPhotosUpdated?.();
     } catch (err: any) {
-      console.error("Ошибка удаления фото:", err);
+      logError("Ошибка удаления фото:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||

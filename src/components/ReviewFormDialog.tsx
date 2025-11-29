@@ -14,6 +14,7 @@ import {
 import { Star as StarIcon } from "@mui/icons-material";
 import { reviewsApi, type CreateReviewRequest } from "../api/reviews";
 import { useSnackbar } from "./SnackbarProvider";
+import { logError } from "../utils/logger";
 
 interface ReviewFormDialogProps {
   open: boolean;
@@ -89,7 +90,7 @@ export const ReviewFormDialog: React.FC<ReviewFormDialogProps> = ({
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      console.error("Ошибка создания отзыва:", err);
+      logError("Ошибка создания отзыва:", err);
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.error ||
@@ -166,6 +167,7 @@ export const ReviewFormDialog: React.FC<ReviewFormDialogProps> = ({
     </Dialog>
   );
 };
+
 
 
 

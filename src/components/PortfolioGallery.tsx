@@ -137,10 +137,6 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
     }
   };
 
-  const handleSelectStart = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    return false;
-  };
 
   if (!photos || photos.length === 0) {
     return null;
@@ -254,7 +250,6 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
           }}
           onContextMenu={handleContextMenu}
           onDragStart={handleDragStart}
-          onSelectStart={handleSelectStart}
         >
           <IconButton
             onClick={handleCloseDialog}
@@ -398,7 +393,6 @@ export const PortfolioGallery: React.FC<PortfolioGalleryProps> = ({
                 draggable={false}
                 onContextMenu={handleContextMenu}
                 onDragStart={handleDragStart}
-                onSelectStart={handleSelectStart}
                 onMouseDown={(e) => {
                   // Предотвращаем выделение при клике
                   if (e.detail > 1) {

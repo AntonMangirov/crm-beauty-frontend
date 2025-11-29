@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Container, Box, Card, Typography } from "@mui/material";
 import { meApi } from "../../api/me";
 import { AuthForm } from "../../components/AuthForm";
+import { logError } from "../../utils/logger";
 
 export const Login: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -25,7 +26,7 @@ export const Login: React.FC = () => {
           // Если токен невалидный, очищаем его и показываем форму логина
           // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
           if (error?.response?.status !== 401) {
-            console.error("Ошибка проверки авторизации:", error);
+            logError("Ошибка проверки авторизации:", error);
           }
           localStorage.removeItem("authToken");
         }

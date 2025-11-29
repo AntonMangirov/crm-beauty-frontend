@@ -25,6 +25,7 @@ import {
 import { meApi, type PortfolioPhoto } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
+import { logError } from "../utils/logger";
 
 export const PortfolioManager: React.FC = () => {
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([]);
@@ -47,7 +48,7 @@ export const PortfolioManager: React.FC = () => {
       const data = await meApi.getPortfolio();
       setPhotos(data.photos);
     } catch (error) {
-      console.error("Ошибка загрузки портфолио:", error);
+      logError("Ошибка загрузки портфолио:", error);
       showSnackbar("Не удалось загрузить портфолио", "error");
     } finally {
       setLoading(false);
@@ -92,7 +93,7 @@ export const PortfolioManager: React.FC = () => {
       showSnackbar("Фото успешно загружено", "success");
       handleCloseUploadDialog();
     } catch (error: any) {
-      console.error("Ошибка загрузки фото:", error);
+      logError("Ошибка загрузки фото:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -114,7 +115,7 @@ export const PortfolioManager: React.FC = () => {
       setPhotos(photos.filter((p) => p.id !== photoId));
       showSnackbar("Фото успешно удалено", "success");
     } catch (error: any) {
-      console.error("Ошибка удаления фото:", error);
+      logError("Ошибка удаления фото:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||

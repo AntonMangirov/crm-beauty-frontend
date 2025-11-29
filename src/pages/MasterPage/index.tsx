@@ -13,6 +13,7 @@ import { MasterProfile } from "../../components/MasterProfile";
 import { mastersApi } from "../../api/masters";
 import { meApi } from "../../api/me";
 import type { Master } from "../../api/masters";
+import { logError } from "../../utils/logger";
 
 export const MasterPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -37,7 +38,7 @@ export const MasterPage: React.FC = () => {
       const masterData = await mastersApi.getBySlug(slug);
       setMaster(masterData);
     } catch (err) {
-      console.error("Ошибка загрузки мастера:", err);
+      logError("Ошибка загрузки мастера:", err);
       setError("Мастер не найден");
     } finally {
       setLoading(false);

@@ -38,6 +38,7 @@ import { ru } from "date-fns/locale";
 import { meApi, type ClientHistoryItem, type ClientListItem } from "../api/me";
 import { normalizeImageUrl } from "../utils/imageUrl";
 import { useSnackbar } from "./SnackbarProvider";
+import { logError } from "../utils/logger";
 
 interface ClientHistoryModalProps {
   open: boolean;
@@ -127,7 +128,7 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
       const historyData = await meApi.getClientHistory(client.id);
       setHistory(historyData);
     } catch (err) {
-      console.error("Ошибка загрузки истории клиента:", err);
+      logError("Ошибка загрузки истории клиента:", err);
       setError("Не удалось загрузить историю клиента");
       showSnackbar("Не удалось загрузить историю клиента", "error");
     } finally {
@@ -188,7 +189,7 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
         onClientUpdated(updatedClient);
       }
     } catch (err) {
-      console.error("Ошибка обновления имени клиента:", err);
+      logError("Ошибка обновления имени клиента:", err);
       showSnackbar("Не удалось обновить имя клиента", "error");
     } finally {
       setUpdatingName(false);

@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import { getRecaptchaToken } from "../utils/recaptcha";
 import { loadRecaptchaScript } from "../utils/loadRecaptcha";
 import { PasswordResetForm } from "./PasswordResetForm";
+import { logError } from "../utils/logger";
 
 interface AuthFormProps {
   defaultTab?: "login" | "register";
@@ -223,7 +224,7 @@ export const AuthForm = forwardRef<AuthFormRef, AuthFormProps>(
         try {
           await meApi.getMe();
         } catch (error) {
-          console.error("Ошибка загрузки данных мастера:", error);
+          logError("Ошибка загрузки данных мастера:", error);
         }
 
         // Отправляем событие для обновления других компонентов

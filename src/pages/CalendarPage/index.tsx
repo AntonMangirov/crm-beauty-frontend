@@ -28,6 +28,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { PickersDay } from "@mui/x-date-pickers/PickersDay";
 import { ru } from "date-fns/locale";
 import { DataGrid } from "@mui/x-data-grid";
+import { logError } from "../../utils/logger";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, isPast, isToday, addMonths, subMonths, getDay } from "date-fns";
 import {
@@ -101,11 +102,11 @@ export const CalendarPage: React.FC = () => {
           const scheduleResponse = await meApi.getSchedule();
           setWorkSchedule(scheduleResponse.schedule.workSchedule);
         } catch (scheduleErr) {
-          console.error("Ошибка загрузки расписания:", scheduleErr);
+          logError("Ошибка загрузки расписания:", scheduleErr);
           // Если расписание не найдено, это нормально для нового пользователя
         }
       } catch (err) {
-        console.error("Ошибка загрузки данных мастера:", err);
+        logError("Ошибка загрузки данных мастера:", err);
       }
     };
     loadMasterData();
@@ -259,7 +260,7 @@ export const CalendarPage: React.FC = () => {
         return next;
       });
     } catch (err) {
-      console.error(`Ошибка загрузки дат с записями за ${monthKey}:`, err);
+      logError(`Ошибка загрузки дат с записями за ${monthKey}:`, err);
     }
   };
 
@@ -335,7 +336,7 @@ export const CalendarPage: React.FC = () => {
         });
       }
     } catch (err) {
-      console.error("Ошибка загрузки записей:", err);
+      logError("Ошибка загрузки записей:", err);
       setError("Не удалось загрузить записи");
       showSnackbar("Не удалось загрузить записи", "error");
     } finally {
@@ -384,7 +385,7 @@ export const CalendarPage: React.FC = () => {
       });
       showSnackbar("Запись подтверждена", "success");
     } catch (err: any) {
-      console.error("Ошибка подтверждения записи:", err);
+      logError("Ошибка подтверждения записи:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
@@ -431,7 +432,7 @@ export const CalendarPage: React.FC = () => {
       });
       showSnackbar("Запись отменена", "success");
     } catch (err: any) {
-      console.error("Ошибка отмены записи:", err);
+      logError("Ошибка отмены записи:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
@@ -480,7 +481,7 @@ export const CalendarPage: React.FC = () => {
       await loadDatesWithAppointmentsForMonth(monthKey);
       showSnackbar("Запись завершена", "success");
     } catch (err: any) {
-      console.error("Ошибка завершения записи:", err);
+      logError("Ошибка завершения записи:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||

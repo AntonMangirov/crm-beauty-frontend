@@ -17,6 +17,7 @@ import { meApi, type MeResponse } from "../api/me";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
 import { AuthDialog } from "./AuthDialog";
+import { logError } from "../utils/logger";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -46,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
           // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
           const status = error?.response?.status;
           if (status && status !== 401) {
-            console.error("Ошибка загрузки данных мастера:", error);
+            logError("Ошибка загрузки данных мастера:", error);
           }
           // Очищаем токен только если это действительно ошибка авторизации
           if (status === 401 || !status) {
@@ -102,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
       const masterData = await meApi.getMe();
       setMaster(masterData);
     } catch (error) {
-      console.error("Ошибка загрузки данных мастера:", error);
+      logError("Ошибка загрузки данных мастера:", error);
     }
   };
 
@@ -112,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
       await apiClient.post("/api/auth/logout");
     } catch (error) {
       // Игнорируем ошибки при logout (может быть уже невалидный токен)
-      console.error("Logout error:", error);
+      logError("Logout error:", error);
     } finally {
       localStorage.removeItem("authToken");
       setMaster(null);

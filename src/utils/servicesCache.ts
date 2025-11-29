@@ -1,4 +1,5 @@
 import { type Service } from "../api/me";
+import { logError } from "./logger";
 
 const CACHE_KEY = "master_services_cache";
 const CACHE_TIMESTAMP_KEY = "master_services_cache_timestamp";
@@ -35,7 +36,7 @@ export const getCachedServices = (): Service[] | null => {
     const parsed: CachedServices = JSON.parse(cachedData);
     return parsed.services;
   } catch (error) {
-    console.error("Ошибка чтения кеша услуг:", error);
+    logError("Ошибка чтения кеша услуг:", error);
     // В случае ошибки очищаем кеш
     clearServicesCache();
     return null;
@@ -54,7 +55,7 @@ export const setCachedServices = (services: Service[]): void => {
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
     localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
   } catch (error) {
-    console.error("Ошибка сохранения кеша услуг:", error);
+    logError("Ошибка сохранения кеша услуг:", error);
     // В случае ошибки (например, переполнение localStorage) просто игнорируем
   }
 };
@@ -67,7 +68,7 @@ export const clearServicesCache = (): void => {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem(CACHE_TIMESTAMP_KEY);
   } catch (error) {
-    console.error("Ошибка очистки кеша услуг:", error);
+    logError("Ошибка очистки кеша услуг:", error);
   }
 };
 
@@ -77,6 +78,7 @@ export const clearServicesCache = (): void => {
 export const hasValidCache = (): boolean => {
   return getCachedServices() !== null;
 };
+
 
 
 

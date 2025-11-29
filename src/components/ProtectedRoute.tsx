@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { CircularProgress, Box } from "@mui/material";
 import { meApi } from "../api/me";
+import { logError } from "../utils/logger";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -35,7 +36,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
         const status = error?.response?.status;
         if (status && status !== 401) {
-          console.error("Ошибка проверки авторизации:", error);
+          logError("Ошибка проверки авторизации:", error);
         }
         // Очищаем токен только если это действительно ошибка авторизации
         if (status === 401 || !status) {

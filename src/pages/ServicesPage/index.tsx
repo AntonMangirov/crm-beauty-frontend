@@ -21,6 +21,7 @@ import {
 } from "../../api/me";
 import { useSnackbar } from "../../components/SnackbarProvider";
 import { clearServicesCache } from "../../utils/servicesCache";
+import { logError } from "../../utils/logger";
 
 export const ServicesPage: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -42,7 +43,7 @@ export const ServicesPage: React.FC = () => {
       const data = await meApi.getServices();
       setServices(data);
     } catch (err) {
-      console.error("Ошибка загрузки услуг:", err);
+      logError("Ошибка загрузки услуг:", err);
       setError("Не удалось загрузить услуги");
       showSnackbar("Не удалось загрузить услуги", "error");
     } finally {
@@ -58,7 +59,7 @@ export const ServicesPage: React.FC = () => {
       clearServicesCache(); // Очищаем кеш при добавлении услуги
       loadServices();
     } catch (err) {
-      console.error("Ошибка создания услуги:", err);
+      logError("Ошибка создания услуги:", err);
       showSnackbar("Не удалось добавить услугу", "error");
       throw err;
     }
@@ -73,7 +74,7 @@ export const ServicesPage: React.FC = () => {
       clearServicesCache(); // Очищаем кеш при обновлении услуги
       loadServices();
     } catch (err) {
-      console.error("Ошибка обновления услуги:", err);
+      logError("Ошибка обновления услуги:", err);
       showSnackbar("Не удалось обновить услугу", "error");
       throw err;
     }
@@ -90,7 +91,7 @@ export const ServicesPage: React.FC = () => {
       clearServicesCache(); // Очищаем кеш при удалении услуги
       loadServices();
     } catch (err: any) {
-      console.error("Ошибка удаления услуги:", err);
+      logError("Ошибка удаления услуги:", err);
       const errorMessage =
         err?.response?.data?.error ||
         err?.response?.data?.message ||

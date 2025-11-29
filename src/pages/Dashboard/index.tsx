@@ -21,6 +21,7 @@ import {
 import { mastersApi } from "../../api/masters";
 import type { Master } from "../../api/masters";
 import { normalizeImageUrl } from "../../utils/imageUrl";
+import { logError } from "../../utils/logger";
 
 // Тестовые мастера для быстрого доступа
 const TEST_MASTER_SLUGS = [
@@ -216,7 +217,7 @@ export const Dashboard: React.FC = () => {
             }
             // Не логируем CORS и rate limit ошибки в консоль, чтобы не засорять
             if (error.code !== 'ERR_NETWORK' && error.response?.status !== 429) {
-              console.error(`Ошибка загрузки мастера ${slug}:`, error);
+              logError(`Ошибка загрузки мастера ${slug}:`, error);
             }
             return null;
           })
@@ -234,7 +235,7 @@ export const Dashboard: React.FC = () => {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         return;
       }
-      console.error("Ошибка загрузки мастеров:", error);
+      logError("Ошибка загрузки мастеров:", error);
     } finally {
       loadingRef.current = false;
       setLoading(false);

@@ -33,6 +33,7 @@ import { meApi, type Appointment } from "../api/me";
 import { mastersApi } from "../api/masters";
 import { useSnackbar } from "./SnackbarProvider";
 import { normalizeImageUrl } from "../utils/imageUrl";
+import { logError } from "../utils/logger";
 
 interface AppointmentDetailsModalProps {
   open: boolean;
@@ -98,7 +99,7 @@ export const AppointmentDetailsModal: React.FC<
       setAvailableSlots(filteredSlots);
       setSelectedSlot(null);
     } catch (error) {
-      console.error("Ошибка загрузки слотов:", error);
+      logError("Ошибка загрузки слотов:", error);
       showSnackbar("Не удалось загрузить доступные слоты", "error");
       setAvailableSlots([]);
     } finally {
@@ -117,7 +118,7 @@ export const AppointmentDetailsModal: React.FC<
       onUpdated();
       onClose();
     } catch (error: any) {
-      console.error("Ошибка переноса встречи:", error);
+      logError("Ошибка переноса встречи:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
