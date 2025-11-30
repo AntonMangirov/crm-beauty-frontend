@@ -67,15 +67,15 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      <Typography variant="h5" sx={{ mb: 1.5, fontWeight: 600 }}>
         Выберите услуги
       </Typography>
 
-      <Typography variant="body1" sx={{ mb: 4, color: "text.secondary" }}>
+      <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
         Выберите одну или несколько услуг для записи
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {services.map((service) => (
           <Grid size={{ xs: 12, sm: 6, md: 4 }} key={service.id}>
             <Card
@@ -95,8 +95,8 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
               }}
               onClick={() => handleServiceToggle(service.id)}
             >
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "flex-start", mb: 2 }}>
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start" }}>
                   <Checkbox
                     checked={selectedServices.includes(service.id)}
                     onChange={(e) => {
@@ -105,15 +105,15 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
                     }}
                     onClick={(e) => e.stopPropagation()} // Предотвращаем всплытие при клике
                     sx={{ mr: 1, mt: -0.5 }}
+                    size="small"
                   />
                   <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
                       {service.name}
                     </Typography>
                     <Typography
-                      variant="body2"
+                      variant="caption"
                       color="text.secondary"
-                      sx={{ mb: 2 }}
                     >
                       {formatPrice(parseFloat(service.price))} •{" "}
                       {formatDuration(service.durationMin)}
@@ -127,12 +127,12 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
       </Grid>
 
       {selectedServices.length > 0 && (
-        <Box sx={{ mt: 4, p: 3, bgcolor: "background.paper", borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+        <Box sx={{ mt: 2, p: 2, bgcolor: "background.paper", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+          <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 600 }}>
             Выбранные услуги
           </Typography>
 
-          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", gap: 0.5, mb: 1.5, flexWrap: "wrap" }}>
             {selectedServices.map((serviceId) => {
               const service = services.find((s) => s.id === serviceId);
               return service ? (
@@ -142,6 +142,7 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
                   onDelete={() => handleServiceToggle(serviceId)}
                   color="primary"
                   variant="outlined"
+                  size="small"
                 />
               ) : null;
             })}
@@ -152,23 +153,25 @@ export const StepSelectService: React.FC<StepSelectServiceProps> = ({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              flexWrap: "wrap",
+              gap: 1,
             }}
           >
             <Box>
-              <Typography variant="body2" color="text.secondary">
-                Общая стоимость: {formatPrice(getTotalPrice())}
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                Общая стоимость: <strong>{formatPrice(getTotalPrice())}</strong>
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Общее время: {formatDuration(getTotalDuration())}
               </Typography>
             </Box>
 
             <Button
               variant="contained"
-              size="large"
+              size="medium"
               onClick={handleNext}
               disabled={selectedServices.length === 0}
-              sx={{ textTransform: "none", px: 4 }}
+              sx={{ textTransform: "none", px: 3 }}
             >
               Продолжить
             </Button>

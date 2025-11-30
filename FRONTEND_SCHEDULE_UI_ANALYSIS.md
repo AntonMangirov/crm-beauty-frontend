@@ -1,0 +1,649 @@
+# Анализ фронтенда для реализации UI расписания мастера
+
+## Текущее состояние фронтенда
+
+### Структура проекта
+
+```
+crm-beauty-frontend/
+├── src/
+│   ├── api/              # API слой
+│   │   ├── index.ts      # apiClient, publicApiClient
+│   │   ├── me.ts         # API для личного кабинета
+│   │   ├── masters.ts    # Публичный API мастера
+│   │   ├── services.ts   # API услуг
+│   │   └── reviews.ts    # API отзывов
+│   ├── components/       # React компоненты
+│   ├── pages/            # Страницы приложения
+│   ├── hooks/            # Custom hooks (пусто)
+│   ├── services/         # Сервисы (пусто)
+│   ├── types/            # TypeScript типы
+│   └── utils/            # Утилиты
+```
+
+### Технологический стек
+
+- **React** 19.1.1
+- **Material-UI (MUI)** 7.3.2
+- **React Router** 7.9.3
+- **Axios** 1.12.2
+- **date-fns** 4.1.0
+- **@mui/x-date-pickers** 8.14.1 (календарь)
+- **@mui/x-data-grid** 8.19.0 (таблицы)
+- **react-hook-form** 7.63.0
+
+---
+
+## Расположение компонентов
+
+### 1. Личный кабинет мастера
+
+**Файл**: `src/pages/MasterCabinet/index.tsx`
+
+**Роут**: `/master`
+
+**Текущий функционал**:
+
+- Отображение профиля мастера
+- Редактирование профиля (имя, описание, адрес, фото)
+- Управление портфолио
+- Быстрая запись
+
+**Роутинг внутри кабинета**:
+
+```typescript
+<Routes>
+  <Route path="/master" element={<ProfilePage />} />
+  <Route path="/master/services" element={<ServicesPage />} />
+  <Route path="/master/calendar" element={<CalendarPage />} />
+  <Route path="/master/clients" element={<ClientsPage />} />
+  <Route path="/master/portfolio" element={<PortfolioPage />} />
+  <Route path="/master/analytics" element={<AnalyticsPage />} />
+  <Route path="/master/settings" element={<SettingsPage />} />
+</Routes>
+```
+
+### 2. Настройки мастера
+
+**Файл**: `src/pages/SettingsPage/index.tsx`
+
+**Роут**: `/master/settings`
+
+**Текущий функционал**:
+
+- Изменение пароля
+- Изменение email
+- Изменение телефона
+
+**Отсутствует**:
+
+- ❌ Управление расписанием
+- ❌ Настройка рабочих интервалов
+- ❌ Настройка перерывов
+- ❌ Настройка буфера
+- ❌ Настройка шага слотов
+
+### 3. Форма редактирования профиля
+
+**Файл**: `src/pages/MasterCabinet/index.tsx` (строки 750-850)
+
+**Компонент**: Dialog с формой редактирования
+
+**Поля**:
+
+- Имя (`name`)
+- Описание (`description`)
+- Адрес (`address`)
+- Фото (`photoUrl`)
+
+**Отсутствует**:
+
+- ❌ Расписание работы
+- ❌ Перерывы
+- ❌ Настройки слотов
+
+---
+
+## Текущее состояние UI для расписания
+
+### ❌ Отсутствует UI для:
+
+1. **Расписания работы**
+
+   - Нет компонента для отображения расписания
+   - Нет формы редактирования расписания
+   - Нет выбора рабочих дней
+
+2. **Дневных интервалов**
+
+   - Нет компонента для добавления/редактирования интервалов
+   - Нет визуализации интервалов на временной шкале
+
+3. **Перерывов**
+
+   - Нет компонента для управления перерывами
+   - Нет формы добавления перерыва
+
+4. **Буфера после услуг**
+
+   - Нет настройки буфера
+   - Нет отображения текущего значения буфера
+
+5. **Шага слотов**
+
+   - Нет выбора шага слотов (5/10/15 минут)
+   - Нет отображения текущего значения
+
+6. **Выбора рабочих дней**
+   - Нет компонента выбора дней недели
+   - Нет отображения текущих рабочих дней
+
+---
+
+## API слой
+
+### Текущий API (`src/api/me.ts`)
+
+**Существующие методы**:
+
+- `getMe()` - получение профиля мастера
+- `updateProfile()` - обновление профиля
+- `changePassword()` - изменение пароля
+- `changeEmail()` - изменение email
+- `changePhone()` - изменение телефона
+- `getServices()` - получение услуг
+- `getAppointments()` - получение записей
+- и другие...
+
+**Отсутствует**:
+
+- ❌ `getSchedule()` - получение расписания
+- ❌ `updateSchedule()` - обновление расписания
+
+### Backend API (готово)
+
+**Эндпоинт**: `PUT /api/me/schedule`
+
+**Схема запроса** (`UpdateScheduleSchema`):
+
+```typescript
+{
+  workSchedule?: Array<{
+    dayOfWeek: number; // 0-6
+    intervals: Array<{
+      from: string; // "HH:mm"
+      to: string;   // "HH:mm"
+    }>;
+  }>;
+  breaks?: Array<{
+    from: string;    // "HH:mm"
+    to: string;      // "HH:mm"
+    reason?: string;
+  }>;
+  defaultBufferMinutes?: number; // 10-30
+  slotStepMinutes?: 5 | 10 | 15;
+}
+```
+
+**Схема ответа**:
+
+```typescript
+{
+  success: boolean;
+  message: string;
+  schedule: {
+    workSchedule: unknown;
+    breaks: unknown;
+    defaultBufferMinutes: number | null;
+    slotStepMinutes: number | null;
+  }
+}
+```
+
+---
+
+## Стейт менеджмент
+
+**Текущее состояние**: Локальный стейт в компонентах
+
+**Используется**:
+
+- `useState` для локального состояния
+- `useEffect` для загрузки данных
+- Нет глобального стейт менеджмента (Redux, Zustand, Context API)
+
+**Рекомендация**: Для расписания можно использовать локальный стейт, так как данные не используются в нескольких местах одновременно.
+
+---
+
+## Роутинг
+
+**Файл**: `src/app/App.tsx`
+
+**Структура**:
+
+```typescript
+<Routes>
+  <Route
+    path="/master/*"
+    element={
+      <ProtectedRoute>
+        <MasterCabinet />
+      </ProtectedRoute>
+    }
+  />
+  ...
+</Routes>
+```
+
+**Внутри MasterCabinet**:
+
+```typescript
+<Routes>
+  <Route path="/master" element={<ProfilePage />} />
+  <Route path="/master/settings" element={<SettingsPage />} />
+  ...
+</Routes>
+```
+
+**Рекомендация**: Добавить роут `/master/schedule` для страницы расписания.
+
+---
+
+## Компоненты, которые нужно создать
+
+### 1. Страница расписания
+
+**Файл**: `src/pages/SchedulePage/index.tsx`
+
+**Роут**: `/master/schedule`
+
+**Функционал**:
+
+- Отображение текущего расписания
+- Редактирование расписания
+- Управление рабочими днями
+- Управление перерывами
+- Настройки буфера и шага слотов
+
+### 2. Компонент выбора дней недели
+
+**Файл**: `src/components/ScheduleEditor/DaySelector.tsx`
+
+**Функционал**:
+
+- Выбор рабочих дней недели
+- Отображение выбранных дней
+- Визуализация (чекбоксы или переключатели)
+
+### 3. Компонент редактирования интервалов
+
+**Файл**: `src/components/ScheduleEditor/TimeIntervalEditor.tsx`
+
+**Функционал**:
+
+- Добавление интервала (from-to)
+- Редактирование интервала
+- Удаление интервала
+- Валидация (from < to, нет пересечений)
+- Визуализация на временной шкале
+
+### 4. Компонент временной шкалы
+
+**Файл**: `src/components/ScheduleEditor/TimeLine.tsx`
+
+**Функционал**:
+
+- Визуализация рабочих интервалов
+- Визуализация перерывов
+- Интерактивное редактирование (drag & drop опционально)
+
+### 5. Компонент управления перерывами
+
+**Файл**: `src/components/ScheduleEditor/BreaksEditor.tsx`
+
+**Функционал**:
+
+- Добавление перерыва
+- Редактирование перерыва
+- Удаление перерыва
+- Причина перерыва (опционально)
+
+### 6. Компонент настроек слотов
+
+**Файл**: `src/components/ScheduleEditor/SlotSettings.tsx`
+
+**Функционал**:
+
+- Выбор шага слотов (5/10/15 минут)
+- Настройка буфера (10-30 минут)
+- Отображение текущих значений
+
+### 7. Компонент формы расписания
+
+**Файл**: `src/components/ScheduleEditor/ScheduleForm.tsx`
+
+**Функционал**:
+
+- Объединение всех компонентов
+- Валидация формы
+- Отправка данных на API
+- Обработка ошибок
+
+---
+
+## Компоненты, которые нужно обновить
+
+### 1. SettingsPage
+
+**Файл**: `src/pages/SettingsPage/index.tsx`
+
+**Изменения**:
+
+- Добавить раздел "Расписание работы"
+- Добавить ссылку на страницу расписания или встроить компонент
+
+**Альтернатива**: Создать отдельную страницу `/master/schedule`
+
+### 2. Sidebar
+
+**Файл**: `src/components/Sidebar.tsx`
+
+**Изменения**:
+
+- Добавить пункт меню "Расписание" с иконкой `ScheduleIcon` или `AccessTimeIcon`
+
+```typescript
+const menuItems: MenuItem[] = [
+  // ... существующие пункты
+  { label: "Расписание", icon: <AccessTimeIcon />, path: "/master/schedule" },
+  // ...
+];
+```
+
+### 3. MasterCabinet (роутинг)
+
+**Файл**: `src/pages/MasterCabinet/index.tsx`
+
+**Изменения**:
+
+- Добавить роут для SchedulePage
+
+```typescript
+<Route path="/master/schedule" element={<SchedulePage />} />
+```
+
+### 4. API слой (me.ts)
+
+**Файл**: `src/api/me.ts`
+
+**Изменения**:
+
+- Добавить типы для расписания
+- Добавить методы `getSchedule()` и `updateSchedule()`
+
+---
+
+## Рекомендации по архитектуре
+
+### 1. Структура компонентов расписания
+
+```
+src/
+├── components/
+│   └── ScheduleEditor/
+│       ├── SchedulePage.tsx          # Главная страница
+│       ├── DayScheduleCard.tsx       # Карточка дня недели
+│       ├── TimeIntervalEditor.tsx    # Редактор интервалов
+│       ├── BreaksEditor.tsx          # Редактор перерывов
+│       ├── SlotSettings.tsx          # Настройки слотов
+│       ├── TimeLine.tsx              # Визуализация временной шкалы
+│       └── ScheduleForm.tsx          # Форма с валидацией
+```
+
+### 2. Типы для расписания
+
+**Файл**: `src/types/schedule.ts` (создать новый)
+
+```typescript
+export interface WorkInterval {
+  from: string; // "HH:mm"
+  to: string; // "HH:mm"
+}
+
+export interface DaySchedule {
+  dayOfWeek: number; // 0-6
+  intervals: WorkInterval[];
+}
+
+export interface Break {
+  from: string;
+  to: string;
+  reason?: string;
+}
+
+export interface MasterSchedule {
+  workSchedule: DaySchedule[];
+  breaks: Break[];
+  defaultBufferMinutes: number | null;
+  slotStepMinutes: number | null;
+}
+
+export interface UpdateScheduleRequest {
+  workSchedule?: DaySchedule[];
+  breaks?: Break[];
+  defaultBufferMinutes?: number;
+  slotStepMinutes?: 5 | 10 | 15;
+}
+```
+
+### 3. API методы
+
+**Добавить в `src/api/me.ts`**:
+
+```typescript
+export const meApi = {
+  // ... существующие методы
+
+  /**
+   * GET /api/me/schedule
+   * Получить расписание мастера
+   */
+  getSchedule: async (): Promise<MasterSchedule> => {
+    const response = await apiClient.get("/api/me/schedule");
+    return response.data;
+  },
+
+  /**
+   * PUT /api/me/schedule
+   * Обновить расписание мастера
+   */
+  updateSchedule: async (
+    data: UpdateScheduleRequest
+  ): Promise<{
+    success: boolean;
+    message: string;
+    schedule: MasterSchedule;
+  }> => {
+    const response = await apiClient.put("/api/me/schedule", data);
+    return response.data;
+  },
+};
+```
+
+### 4. UI/UX рекомендации
+
+#### Визуализация расписания
+
+**Вариант 1: Табличный вид**
+
+```
+Понедельник    [09:00 - 13:00] [14:00 - 18:00]  [+ Добавить интервал]
+Вторник        [09:00 - 18:00]                  [+ Добавить интервал]
+Среда          [Выходной]                       [Сделать рабочим]
+...
+```
+
+**Вариант 2: Временная шкала**
+
+```
+Понедельник
+┌─────────────────────────────────────────┐
+│ 00:00  09:00  13:00  14:00  18:00  24:00│
+│         └─────┘ └─────┘                  │
+│         Работа  Перерыв Работа           │
+└─────────────────────────────────────────┘
+```
+
+**Вариант 3: Карточки дней**
+
+```
+┌─────────────────────┐
+│ Понедельник         │
+│ ┌─────────┐ ┌─────┐ │
+│ │09:00-13:00│ │14:00-18:00│ │
+│ └─────────┘ └─────┘ │
+│ [+ Добавить интервал]│
+└─────────────────────┘
+```
+
+#### Компоненты Material-UI
+
+**Рекомендуемые компоненты**:
+
+- `Card` / `CardContent` - для карточек дней
+- `TextField` с `type="time"` - для выбора времени
+- `TimePicker` из `@mui/x-date-pickers` - для выбора времени
+- `Chip` - для отображения интервалов
+- `Button` / `IconButton` - для действий
+- `Dialog` - для редактирования
+- `FormControl` / `Select` - для выбора шага слотов
+- `Slider` или `TextField` с `type="number"` - для буфера
+
+#### Валидация на фронте
+
+**Перед отправкой на API**:
+
+- Проверка формата времени (HH:mm)
+- Проверка что `from < to`
+- Проверка отсутствия пересечений интервалов
+- Проверка диапазонов (буфер 10-30, шаг 5/10/15)
+
+---
+
+## План реализации
+
+### Этап 1: Подготовка
+
+1. ✅ Создать типы для расписания (`src/types/schedule.ts`)
+2. ✅ Добавить API методы в `src/api/me.ts`
+3. ✅ Добавить роут в `MasterCabinet`
+4. ✅ Добавить пункт меню в `Sidebar`
+
+### Этап 2: Базовые компоненты
+
+1. ✅ Создать `SchedulePage` - главная страница
+2. ✅ Создать `DayScheduleCard` - карточка дня недели
+3. ✅ Создать `TimeIntervalEditor` - редактор интервалов
+4. ✅ Создать `SlotSettings` - настройки слотов
+
+### Этап 3: Расширенные компоненты
+
+1. ✅ Создать `BreaksEditor` - редактор перерывов
+2. ✅ Создать `TimeLine` - визуализация временной шкалы
+3. ✅ Добавить валидацию форм
+4. ✅ Добавить обработку ошибок
+
+### Этап 4: Интеграция
+
+1. ✅ Интегрировать с API
+2. ✅ Добавить загрузку текущего расписания
+3. ✅ Добавить сохранение изменений
+4. ✅ Добавить уведомления об успехе/ошибке
+
+---
+
+## Пример структуры SchedulePage
+
+```typescript
+import React, { useState, useEffect } from "react";
+import { Box, Container, Typography, Card, Button, Grid } from "@mui/material";
+import { meApi } from "../../api/me";
+import { DayScheduleCard } from "../../components/ScheduleEditor/DayScheduleCard";
+import { SlotSettings } from "../../components/ScheduleEditor/SlotSettings";
+import { BreaksEditor } from "../../components/ScheduleEditor/BreaksEditor";
+
+export const SchedulePage: React.FC = () => {
+  const [schedule, setSchedule] = useState<MasterSchedule | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadSchedule();
+  }, []);
+
+  const loadSchedule = async () => {
+    try {
+      const data = await meApi.getSchedule();
+      setSchedule(data);
+    } catch (err) {
+      console.error("Ошибка загрузки расписания:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!schedule) return;
+
+    try {
+      setSaving(true);
+      await meApi.updateSchedule(schedule);
+      showSnackbar("Расписание успешно обновлено", "success");
+    } catch (err) {
+      console.error("Ошибка сохранения расписания:", err);
+      showSnackbar("Не удалось сохранить расписание", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ... рендер компонентов
+};
+```
+
+---
+
+## Резюме
+
+### ✅ Что есть:
+
+- Структура проекта готова
+- API бэкенда готов (`PUT /api/me/schedule`)
+- Material-UI установлен
+- Роутинг настроен
+- Базовые компоненты для работы с формами
+
+### ❌ Что нужно создать:
+
+1. **Типы** (`src/types/schedule.ts`)
+2. **API методы** (в `src/api/me.ts`)
+3. **Страница расписания** (`src/pages/SchedulePage/index.tsx`)
+4. **Компоненты редактора** (`src/components/ScheduleEditor/`)
+5. **Обновление Sidebar** (добавить пункт меню)
+6. **Обновление роутинга** (добавить роут)
+
+### 📋 Приоритеты:
+
+1. **Высокий**: Типы, API методы, базовая страница расписания
+2. **Средний**: Компоненты редактирования интервалов и перерывов
+3. **Низкий**: Визуализация временной шкалы, расширенные возможности
+
+### 🎨 Рекомендации по дизайну:
+
+- Использовать карточки для каждого дня недели
+- Временные поля с валидацией
+- Визуальная индикация рабочих/выходных дней
+- Простое и интуитивное управление интервалами
+
+

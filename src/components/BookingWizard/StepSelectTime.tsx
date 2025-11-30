@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -7,6 +7,9 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
+  Alert,
+  Pagination,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -17,8 +20,10 @@ import {
   AccessTime as TimeIcon,
 } from "@mui/icons-material";
 import type { Service } from "../../api/masters";
+import { mastersApi } from "../../api/masters";
 
 interface StepSelectTimeProps {
+  masterSlug: string;
   selectedServices: Service[];
   selectedDate: Date | null;
   selectedTime: string;
@@ -29,6 +34,7 @@ interface StepSelectTimeProps {
 }
 
 export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
+  masterSlug,
   selectedServices,
   selectedDate,
   selectedTime,
@@ -39,10 +45,18 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
 }) => {
   const [localDate, setLocalDate] = useState<Date | null>(selectedDate);
   const [localTime, setLocalTime] = useState<string>(selectedTime);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [slotsPage, setSlotsPage] = useState(1);
+  const slotsPerPage = 20;
 
   const handleDateChange = (date: Date | null) => {
     setLocalDate(date);
     onDateChange(date);
+    setLocalTime(""); // Сбрасываем выбранное время при смене даты
+    onTimeChange("");
+    setSlotsPage(1); // Сбрасываем страницу при смене даты
   };
 
   const handleTimeChange = (time: string) => {
@@ -56,16 +70,69 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
     }
   };
 
-  // Генерируем доступные временные слоты
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 9; hour <= 18; hour++) {
-      slots.push(`${hour.toString().padStart(2, "0")}:00`);
+  // Загружаем доступные слоты при изменении даты или услуг
+  useEffect(() => {
+    if (!localDate) {
+      setAvailableSlots([]);
+      return;
     }
-    return slots;
-  };
 
-  const timeSlots = generateTimeSlots();
+    const loadTimeslots = async () => {
+      setLoadingSlots(true);
+      setSlotsError(null);
+
+      try {
+        // Форматируем дату в YYYY-MM-DD (используем локальные компоненты даты)
+        // toISOString() может дать неправильную дату из-за часового пояса
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, "0");
+        const day = String(localDate.getDate()).padStart(2, "0");
+        const dateStr = `${year}-${month}-${day}`;
+
+        // Используем первую выбранную услугу для учёта длительности
+        const serviceId =
+          selectedServices.length > 0 ? selectedServices[0].id : undefined;
+
+        const response = await mastersApi.getTimeslots(
+          masterSlug,
+          dateStr,
+          serviceId
+        );
+
+        // Преобразуем ISO строки в формат HH:MM для отображения
+        const formattedSlots = response.available.map((isoString) => {
+          const date = new Date(isoString);
+          const hours = date.getUTCHours().toString().padStart(2, "0");
+          const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+          return `${hours}:${minutes}`;
+        });
+
+        setAvailableSlots(formattedSlots);
+      } catch (error: unknown) {
+        // Обрабатываем ошибку загрузки временных слотов
+        const axiosError = error as {
+          response?: { status?: number; data?: { message?: string; error?: string } };
+        };
+        
+        const errorMessage =
+          axiosError.response?.data?.message ||
+          axiosError.response?.data?.error ||
+          "Не удалось загрузить доступное время";
+        setSlotsError(errorMessage);
+        
+        // Fallback: показываем стандартные временные слоты при ошибке
+        const fallbackSlots = [];
+        for (let hour = 9; hour <= 18; hour++) {
+          fallbackSlots.push(`${hour.toString().padStart(2, "0")}:00`);
+        }
+        setAvailableSlots(fallbackSlots);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+
+    loadTimeslots();
+  }, [localDate, masterSlug, selectedServices]);
 
   const getTotalDuration = () => {
     return selectedServices.reduce(
@@ -96,21 +163,21 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
       <Box>
-        <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+        <Typography variant="h5" sx={{ mb: 1.5, fontWeight: 600 }}>
           Выберите дату и время
         </Typography>
 
-        <Typography variant="body1" sx={{ mb: 4, color: "text.secondary" }}>
+        <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
           Выберите удобную дату и время для записи
         </Typography>
 
         {/* Выбранные услуги */}
-        <Card sx={{ mb: 4 }}>
-          <CardContent>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+        <Card sx={{ mb: 2 }}>
+          <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
               Выбранные услуги
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", gap: 0.5, mb: 1, flexWrap: "wrap" }}>
               {selectedServices.map((service) => (
                 <Chip
                   key={service.id}
@@ -121,20 +188,22 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                 />
               ))}
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               Общее время: {formatDuration(getTotalDuration())}
             </Typography>
           </CardContent>
         </Card>
 
-        <Grid container spacing={4}>
+        <Grid container spacing={2}>
           {/* Выбор даты */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <CalendarIcon sx={{ mr: 1, color: "primary.main" }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                  <CalendarIcon
+                    sx={{ mr: 1, color: "primary.main", fontSize: 20 }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     Выберите дату
                   </Typography>
                 </Box>
@@ -147,6 +216,7 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      size: "small",
                       helperText: "Выберите дату не ранее завтрашнего дня",
                     },
                   }}
@@ -155,13 +225,13 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
                 {localDate && (
                   <Box
                     sx={{
-                      mt: 2,
-                      p: 2,
+                      mt: 1.5,
+                      p: 1,
                       bgcolor: "primary.light",
                       borderRadius: 1,
                     }}
                   >
-                    <Typography variant="body2" color="primary.contrastText">
+                    <Typography variant="caption" color="primary.contrastText">
                       Выбрано: {formatDate(localDate)}
                     </Typography>
                   </Box>
@@ -173,41 +243,78 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
           {/* Выбор времени */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Card>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                  <TimeIcon sx={{ mr: 1, color: "primary.main" }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
+                  <TimeIcon
+                    sx={{ mr: 1, color: "primary.main", fontSize: 20 }}
+                  />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     Выберите время
                   </Typography>
                 </Box>
 
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {timeSlots.map((time) => (
-                    <Button
-                      key={time}
-                      variant={localTime === time ? "contained" : "outlined"}
-                      size="small"
-                      onClick={() => handleTimeChange(time)}
-                      sx={{
-                        minWidth: 80,
-                        textTransform: "none",
-                      }}
-                    >
-                      {time}
-                    </Button>
-                  ))}
-                </Box>
+                {loadingSlots ? (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", py: 2 }}
+                  >
+                    <CircularProgress size={20} />
+                  </Box>
+                ) : slotsError ? (
+                  <Alert severity="warning" sx={{ mb: 1, py: 0.5 }}>
+                    {slotsError}
+                  </Alert>
+                ) : availableSlots.length === 0 ? (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ py: 1, display: "block" }}
+                  >
+                    Нет доступного времени на выбранную дату
+                  </Typography>
+                ) : (
+                  <>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                      {availableSlots
+                        .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                        .map((time) => (
+                          <Button
+                            key={time}
+                            variant={localTime === time ? "contained" : "outlined"}
+                            size="small"
+                            onClick={() => handleTimeChange(time)}
+                            sx={{
+                              minWidth: 80,
+                              textTransform: "none",
+                            }}
+                          >
+                            {time}
+                          </Button>
+                        ))}
+                    </Box>
+                    {availableSlots.length > slotsPerPage && (
+                      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                        <Pagination
+                          count={Math.ceil(availableSlots.length / slotsPerPage)}
+                          page={slotsPage}
+                          onChange={(_, value) => setSlotsPage(value)}
+                          size="small"
+                          color="primary"
+                        />
+                      </Box>
+                    )}
+                  </>
+                )}
 
                 {localTime && (
                   <Box
                     sx={{
-                      mt: 2,
-                      p: 2,
+                      mt: 1.5,
+                      p: 1,
                       bgcolor: "primary.light",
                       borderRadius: 1,
                     }}
                   >
-                    <Typography variant="body2" color="primary.contrastText">
+                    <Typography variant="caption" color="primary.contrastText">
                       Выбрано: {localTime}
                     </Typography>
                   </Box>
@@ -218,9 +325,10 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
         </Grid>
 
         {/* Навигация */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
           <Button
             variant="outlined"
+            size="medium"
             onClick={onBack}
             sx={{ textTransform: "none" }}
           >
@@ -229,9 +337,10 @@ export const StepSelectTime: React.FC<StepSelectTimeProps> = ({
 
           <Button
             variant="contained"
+            size="medium"
             onClick={handleNext}
             disabled={!localDate || !localTime}
-            sx={{ textTransform: "none", px: 4 }}
+            sx={{ textTransform: "none", px: 3 }}
           >
             Продолжить
           </Button>
