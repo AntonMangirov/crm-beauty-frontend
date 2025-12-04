@@ -17,6 +17,10 @@ import {
   Paper,
   TextField,
   InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
@@ -39,6 +43,7 @@ export const ClientsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<'name' | 'lastVisit'>('name');
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
   const { showSnackbar } = useSnackbar();
@@ -47,7 +52,7 @@ export const ClientsPage: React.FC = () => {
 
   useEffect(() => {
     loadClients();
-  }, []);
+  }, [sortBy]);
 
   useEffect(() => {
     filterClients();
@@ -57,7 +62,7 @@ export const ClientsPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const clientsData = await meApi.getClients();
+      const clientsData = await meApi.getClients(undefined, sortBy);
       setAllClients(clientsData);
       setClients(clientsData);
     } catch (err) {
@@ -285,26 +290,39 @@ export const ClientsPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Поиск */}
+      {/* Поиск и сортировка */}
       <Card sx={{ mb: 2, p: 2 }}>
-        <TextField
-          fullWidth
-          placeholder="Поиск по имени, телефону, Telegram ID или дате..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              backgroundColor: "background.paper",
-            },
-          }}
-        />
+        <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
+          <TextField
+            fullWidth
+            placeholder="Поиск по имени, телефону, Telegram ID или дате..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "background.paper",
+              },
+            }}
+          />
+          <FormControl sx={{ minWidth: { xs: "100%", sm: 200 } }}>
+            <InputLabel>Сортировка</InputLabel>
+            <Select
+              value={sortBy}
+              label="Сортировка"
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'lastVisit')}
+            >
+              <MenuItem value="name">По имени</MenuItem>
+              <MenuItem value="lastVisit">По последнему визиту</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
         {searchQuery && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
             Найдено клиентов: {clients.length}

@@ -111,9 +111,11 @@ export interface ClientListItem {
   name: string;
   phone: string | null;
   telegramUsername: string | null;
-  lastVisit: string | null; // ISO date string
+  firstVisit: string | null; // ISO date string - дата первого посещения
+  lastVisit: string | null; // ISO date string - дата последнего посещения
   visitsCount: number;
   photosCount: number; // Количество фото у клиента
+  notes: string | null; // Заметки о клиенте
 }
 
 export interface ClientHistoryPhoto {
@@ -256,9 +258,12 @@ export const meApi = {
     id: string,
     startAt: string
   ): Promise<Appointment> => {
-    const response = await apiClient.patch(`/api/me/appointments/${id}/reschedule`, {
-      startAt,
-    });
+    const response = await apiClient.patch(
+      `/api/me/appointments/${id}/reschedule`,
+      {
+        startAt,
+      }
+    );
     return response.data;
   },
 
@@ -304,12 +309,17 @@ export const meApi = {
    * GET /api/me/clients
    * Получить список клиентов мастера
    * @param search - поиск по имени или телефону (опционально)
+   * @param sortBy - сортировка: 'name' или 'lastVisit' (опционально)
    */
-  getClients: async (search?: { name?: string; phone?: string }): Promise<ClientListItem[]> => {
+  getClients: async (
+    search?: { name?: string; phone?: string },
+    sortBy?: "name" | "lastVisit"
+  ): Promise<ClientListItem[]> => {
     const params = new URLSearchParams();
     if (search?.name) params.append("name", search.name);
     if (search?.phone) params.append("phone", search.phone);
-    
+    if (sortBy) params.append("sortBy", sortBy);
+
     const queryString = params.toString();
     const url = `/api/me/clients${queryString ? `?${queryString}` : ""}`;
     const response = await apiClient.get(url);
@@ -329,7 +339,10 @@ export const meApi = {
    * PATCH /api/me/clients/:id
    * Обновить данные клиента
    */
-  updateClient: async (clientId: string, data: { name?: string }): Promise<ClientListItem> => {
+  updateClient: async (
+    clientId: string,
+    data: { name?: string; notes?: string | null }
+  ): Promise<ClientListItem> => {
     const response = await apiClient.patch(`/api/me/clients/${clientId}`, data);
     return response.data;
   },
@@ -338,16 +351,22 @@ export const meApi = {
    * GET /api/me/appointments/last-manual
    * Получить последние ручные записи (source = MANUAL или PHONE)
    */
-  getLastManualAppointments: async (limit?: number): Promise<Array<{
-    id: string;
-    serviceId: string;
-    service: Service;
-    createdAt: string;
-  }>> => {
+  getLastManualAppointments: async (
+    limit?: number
+  ): Promise<
+    Array<{
+      id: string;
+      serviceId: string;
+      service: Service;
+      createdAt: string;
+    }>
+  > => {
     const params = new URLSearchParams();
     if (limit) params.append("limit", limit.toString());
     const queryString = params.toString();
-    const url = `/api/me/appointments/last-manual${queryString ? `?${queryString}` : ""}`;
+    const url = `/api/me/appointments/last-manual${
+      queryString ? `?${queryString}` : ""
+    }`;
     const response = await apiClient.get(url);
     return response.data;
   },
@@ -356,7 +375,10 @@ export const meApi = {
    * GET /api/me/services/top
    * Получить топ-5 наиболее используемых услуг
    */
-  getTopServices: async (limit?: number, days?: number): Promise<Array<Service & { usageCount: number }>> => {
+  getTopServices: async (
+    limit?: number,
+    days?: number
+  ): Promise<Array<Service & { usageCount: number }>> => {
     const params = new URLSearchParams();
     if (limit) params.append("limit", limit.toString());
     if (days) params.append("days", days.toString());
@@ -434,11 +456,15 @@ export const meApi = {
     if (description) {
       formData.append("description", description);
     }
-    const response = await apiClient.post("/api/me/portfolio/photos", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    const response = await apiClient.post(
+      "/api/me/portfolio/photos",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   },
 

@@ -84,6 +84,9 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [updatingName, setUpdatingName] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editedNotes, setEditedNotes] = useState("");
+  const [updatingNotes, setUpdatingNotes] = useState(false);
   const [currentClient, setCurrentClient] = useState<ClientListItem | null>(client);
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
@@ -106,7 +109,9 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
     if (open && client) {
       setCurrentClient(client);
       setEditedName(client.name);
+      setEditedNotes(client.notes || "");
       setIsEditingName(false);
+      setIsEditingNotes(false);
       loadHistory();
       setActiveTab(0); // Сбрасываем вкладку при открытии
     } else {
@@ -115,6 +120,7 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
       setSelectedPhoto(null);
       setActiveTab(0);
       setIsEditingName(false);
+      setIsEditingNotes(false);
       setCurrentClient(null);
     }
   }, [open, client]);
@@ -193,6 +199,52 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
       showSnackbar("Не удалось обновить имя клиента", "error");
     } finally {
       setUpdatingName(false);
+    }
+  };
+
+  const handleStartEditNotes = () => {
+    if (currentClient) {
+      setEditedNotes(currentClient.notes || "");
+      setIsEditingNotes(true);
+    }
+  };
+
+  const handleCancelEditNotes = () => {
+    setIsEditingNotes(false);
+    if (currentClient) {
+      setEditedNotes(currentClient.notes || "");
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!currentClient) return;
+
+    const trimmedNotes = editedNotes.trim();
+    const notesValue = trimmedNotes === "" ? null : trimmedNotes;
+    
+    if (notesValue === (currentClient.notes || null)) {
+      setIsEditingNotes(false);
+      return;
+    }
+
+    try {
+      setUpdatingNotes(true);
+      const updatedClient = await meApi.updateClient(currentClient.id, {
+        notes: notesValue,
+      });
+      setCurrentClient(updatedClient);
+      setIsEditingNotes(false);
+      showSnackbar("Заметки успешно обновлены", "success");
+      
+      // Обновляем заметки в родительском компоненте через callback
+      if (onClientUpdated) {
+        onClientUpdated(updatedClient);
+      }
+    } catch (err) {
+      logError("Ошибка обновления заметок:", err);
+      showSnackbar("Не удалось обновить заметки", "error");
+    } finally {
+      setUpdatingNotes(false);
     }
   };
 
@@ -327,6 +379,70 @@ export const ClientHistoryModal: React.FC<ClientHistoryModalProps> = ({
 
         {/* Содержимое вкладок */}
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          {/* Секция заметок о клиенте */}
+          {currentClient && (
+            <Card variant="outlined" sx={{ mb: 3, bgcolor: "background.default" }}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                    Заметки о клиенте
+                  </Typography>
+                  {!isEditingNotes && (
+                    <IconButton
+                      size="small"
+                      onClick={handleStartEditNotes}
+                      sx={{ p: 0.5 }}
+                      title="Редактировать заметки"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+                {isEditingNotes ? (
+                  <Box>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      value={editedNotes}
+                      onChange={(e) => setEditedNotes(e.target.value)}
+                      placeholder="Введите заметки о клиенте..."
+                      disabled={updatingNotes}
+                      autoFocus
+                      sx={{ mb: 1 }}
+                      inputProps={{
+                        maxLength: 2000,
+                      }}
+                    />
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={handleCancelEditNotes}
+                        disabled={updatingNotes}
+                        startIcon={<CancelIcon />}
+                      >
+                        Отмена
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleSaveNotes}
+                        disabled={updatingNotes}
+                        startIcon={updatingNotes ? <CircularProgress size={16} /> : <CheckIcon />}
+                      >
+                        Сохранить
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                    {currentClient.notes || "Заметок нет"}
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {loading && history.length === 0 ? (
             <Box
               sx={{

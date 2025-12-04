@@ -1,0 +1,6 @@
+# Эта папка предназначена для кастомных React хуков
+# Примеры:
+# - useAuth.ts
+# - useApi.ts
+# - useLocalStorage.ts
+
