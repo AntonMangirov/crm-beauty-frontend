@@ -17,9 +17,11 @@ import type { ClientFormData } from "./StepClientForm";
 import { mastersApi } from "../../api/masters";
 import type { Master, Service } from "../../api/masters";
 import { useSnackbar } from "../SnackbarProvider";
+import { getRecaptchaToken } from "../../utils/recaptcha";
 
 interface BookingWizardProps {
   masterSlug: string;
+  preselectedServiceId?: string; // Предвыбранная услуга
   onBookingComplete?: (appointmentId: string) => void;
   onClose?: () => void;
 }
@@ -28,6 +30,7 @@ const steps = ["Выбор услуг", "Дата и время", "Контак�
 
 export const BookingWizard: React.FC<BookingWizardProps> = ({
   masterSlug,
+  preselectedServiceId,
   onBookingComplete,
   onClose,
 }) => {
@@ -39,7 +42,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Данные записи
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    preselectedServiceId ? [preselectedServiceId] : []
+  );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -55,8 +60,17 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       setError(null);
       const masterData = await mastersApi.getBySlug(masterSlug);
       setMaster(masterData);
+      
+      // Если есть предвыбранная услуга, проверяем её существование
+      if (preselectedServiceId) {
+        const serviceExists = masterData.services.some(
+          (s) => s.id === preselectedServiceId
+        );
+        if (serviceExists) {
+          setSelectedServices([preselectedServiceId]);
+        }
+      }
     } catch (err) {
-      console.error("Ошибка загрузки мастера:", err);
       setError("Не удалось загрузить данные мастера");
     } finally {
       setLoading(false);
@@ -80,21 +94,13 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   };
 
   const handleFormSubmit = async (formData: ClientFormData) => {
-    console.log("handleFormSubmit вызван с данными:", formData);
-    console.log("Проверка данных:", {
-      master: !!master,
-      selectedServices: selectedServices.length,
-      selectedDate,
-      selectedTime,
-    });
-
+    // Проверяем наличие всех необходимых данных для создания записи
     if (
       !master ||
       selectedServices.length === 0 ||
       !selectedDate ||
       !selectedTime
     ) {
-      console.error("Недостаточно данных для создания записи");
       const errorMsg =
         "Не все данные заполнены. Пожалуйста, вернитесь к предыдущим шагам.";
       setError(errorMsg);
@@ -106,13 +112,18 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
     setError(null);
 
     try {
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth() + 1;
-      const day = selectedDate.getDate();
+      // Преобразуем выбранное время в UTC формат для отправки на сервер
+      // selectedTime в формате "HH:MM" (UTC время из API)
+      // selectedDate - локальная дата из DatePicker
       const [hours, minutes] = selectedTime.split(":").map(Number);
+      
+      // Используем локальные компоненты даты и создаём UTC дату с UTC временем
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
 
       const startAtDate = new Date(
-        Date.UTC(year, month - 1, day, hours, minutes, 0, 0)
+        Date.UTC(year, month, day, hours, minutes, 0, 0)
       );
 
       if (isNaN(startAtDate.getTime())) {
@@ -121,12 +132,18 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         );
       }
 
+      // Получаем токен reCAPTCHA для защиты от ботов
+      const recaptchaToken = await getRecaptchaToken('booking');
+
+      // formData уже содержит нормализованные данные из StepClientForm
       const bookingData = {
-        name: formData.name,
-        phone: formData.phone,
+        ...(formData.phone && { phone: formData.phone }),
+        ...(formData.telegramUsername && { telegramUsername: formData.telegramUsername }),
         serviceId: selectedServices[0],
         startAt: startAtDate.toISOString(),
-        comment: formData.comment || undefined,
+        ...(formData.comment && { comment: formData.comment }),
+        // Отправляем токен только если он получен (в dev режиме может быть null)
+        ...(recaptchaToken && { recaptchaToken }),
       };
 
       const response = await mastersApi.bookAppointment(
@@ -154,12 +171,13 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
             appointmentId: response.id,
             masterName: master.name,
             masterSlug: masterSlug,
+            masterPhotoUrl: master.photoUrl,
+            masterAddress: master.address,
             serviceName: selectedService.name,
             servicePrice: selectedService.price,
             serviceDuration: selectedService.durationMin,
             startAt: response.startAt,
             endAt: response.endAt,
-            clientName: formData.name,
           },
         });
       }, 500);
@@ -168,34 +186,66 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
         onBookingComplete(response.id);
       }
     } catch (err: unknown) {
-      console.error("Ошибка создания записи:", err);
-
       const error = err as any; // eslint-disable-line @typescript-eslint/no-explicit-any
       let errorMessage = "Не удалось создать запись. Попробуйте еще раз.";
 
-      if (error.response?.status === 400) {
-        if (error.response.data?.details?.fieldErrors) {
-          const fieldErrors = error.response.data.details.fieldErrors;
-          const errorFields = Object.keys(fieldErrors);
-          if (errorFields.length > 0) {
-            const firstError = fieldErrors[errorFields[0]];
-            errorMessage = Array.isArray(firstError)
-              ? firstError[0]
-              : firstError || errorMessage;
-          } else {
-            errorMessage = error.response.data?.message || errorMessage;
-          }
-        } else {
-          errorMessage =
-            error.response.data?.message ||
-            error.response.data?.error ||
-            errorMessage;
+      // Обработка различных статусов ошибок
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+
+        switch (status) {
+          case 400:
+            // Ошибка валидации (дата, формат и т.д.)
+            if (data?.details?.issues) {
+              // Zod validation errors
+              const firstIssue = data.details.issues[0];
+              errorMessage = firstIssue?.message || "Ошибка валидации данных";
+            } else if (data?.details?.fieldErrors) {
+              // Field-specific errors
+              const fieldErrors = data.details.fieldErrors;
+              const errorFields = Object.keys(fieldErrors);
+              if (errorFields.length > 0) {
+                const firstError = fieldErrors[errorFields[0]];
+                errorMessage = Array.isArray(firstError)
+                  ? firstError[0]
+                  : firstError || errorMessage;
+              } else {
+                errorMessage = data?.message || errorMessage;
+              }
+            } else {
+              // Общая ошибка 400
+              errorMessage =
+                data?.message ||
+                data?.error ||
+                "Ошибка валидации. Проверьте введенные данные.";
+            }
+            break;
+
+          case 404:
+            // Мастер не найден или неактивен
+            errorMessage = data?.message || "Мастер не найден или неактивен";
+            break;
+
+          case 409:
+            // Конфликт времени (слот занят)
+            errorMessage =
+              data?.message ||
+              "Выбранное время уже занято. Пожалуйста, выберите другое время";
+            break;
+
+          case 500:
+            // Внутренняя ошибка сервера
+            errorMessage =
+              "Внутренняя ошибка сервера. Пожалуйста, попробуйте позже.";
+            break;
+
+          default:
+            errorMessage = data?.message || errorMessage;
         }
-      } else if (error.response?.status === 404) {
-        errorMessage = "Мастер не найден";
-      } else if (error.response?.status === 409) {
-        errorMessage =
-          "Выбранное время уже занято. Пожалуйста, выберите другое время";
+      } else if (error.request) {
+        // Запрос отправлен, но ответа нет
+        errorMessage = "Не удалось подключиться к серверу. Проверьте подключение.";
       }
 
       setError(errorMessage);
@@ -239,9 +289,9 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: 2 }}>
       {/* Stepper */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 2 }}>
         <Stepper activeStep={activeStep} alternativeLabel>
           {steps.map((label) => (
             <Step key={label}>
@@ -252,7 +302,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
       </Box>
 
       {/* Содержимое шагов */}
-      <Box sx={{ minHeight: 400 }}>
+      <Box sx={{ minHeight: 300 }}>
         {activeStep === 0 && (
           <StepSelectService
             services={master.services}
@@ -264,6 +314,7 @@ export const BookingWizard: React.FC<BookingWizardProps> = ({
 
         {activeStep === 1 && (
           <StepSelectTime
+            masterSlug={masterSlug}
             selectedServices={getSelectedServicesData()}
             selectedDate={selectedDate}
             selectedTime={selectedTime}

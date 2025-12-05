@@ -1,0 +1,6 @@
+# Эта папка предназначена для сервисных функций
+# Примеры:
+# - apiService.ts
+# - storageService.ts
+# - validationService.ts
+

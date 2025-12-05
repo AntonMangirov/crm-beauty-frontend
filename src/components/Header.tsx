@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -6,9 +6,18 @@ import {
   Box,
   Button,
   IconButton,
+  Menu,
+  MenuItem,
+  Avatar,
 } from "@mui/material";
-import { Menu as MenuIcon, AccountCircle } from "@mui/icons-material";
+import { Menu as MenuIcon, AccountCircle, Logout } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { apiClient } from "../api";
+import { meApi, type MeResponse } from "../api/me";
+import { useSnackbar } from "./SnackbarProvider";
+import { normalizeImageUrl } from "../utils/imageUrl";
+import { AuthDialog } from "./AuthDialog";
+import { logError } from "../utils/logger";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -20,6 +29,101 @@ export const Header: React.FC<HeaderProps> = ({
   showMenuButton = false,
 }) => {
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [master, setMaster] = useState<MeResponse | null>(null);
+
+  useEffect(() => {
+    // Загружаем данные мастера при монтировании компонента
+    const loadMaster = async () => {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        try {
+          const masterData = await meApi.getMe();
+          setMaster(masterData);
+        } catch (error: any) {
+          // Если токен невалидный или пользователь не авторизован, очищаем его
+          // Не логируем ошибку 401, так как это ожидаемо для неавторизованных пользователей
+          const status = error?.response?.status;
+          if (status && status !== 401) {
+            logError("Ошибка загрузки данных мастера:", error);
+          }
+          // Очищаем токен только если это действительно ошибка авторизации
+          if (status === 401 || !status) {
+            localStorage.removeItem("authToken");
+          }
+          setMaster(null);
+        }
+      } else {
+        setMaster(null);
+      }
+    };
+
+    loadMaster();
+
+    // Слушаем изменения токена (для обновления при выходе из других компонентов)
+    const handleStorageChange = () => {
+      loadMaster();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Также слушаем кастомное событие для обновления в той же вкладке
+    window.addEventListener("authChange", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("authChange", handleStorageChange);
+    };
+  }, []);
+
+  const handleAccountClick = (event: React.MouseEvent<HTMLElement>) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      // Если залогинен, показываем меню
+      setAnchorEl(event.currentTarget);
+    } else {
+      // Если не залогинен, показываем диалог входа
+      setLoginDialogOpen(true);
+    }
+  };
+
+  const handleMenuClose = () => {
+    // Убираем фокус перед закрытием меню, чтобы избежать предупреждения о доступности
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setAnchorEl(null);
+  };
+
+  const handleAuthSuccess = async () => {
+    // Загружаем данные мастера после успешного входа
+    try {
+      const masterData = await meApi.getMe();
+      setMaster(masterData);
+    } catch (error) {
+      logError("Ошибка загрузки данных мастера:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Вызываем logout endpoint для очистки refresh token на сервере
+      await apiClient.post("/api/auth/logout");
+    } catch (error) {
+      // Игнорируем ошибки при logout (может быть уже невалидный токен)
+      logError("Logout error:", error);
+    } finally {
+      localStorage.removeItem("authToken");
+      setMaster(null);
+      setAnchorEl(null);
+      showSnackbar("Вы вышли из системы", "info");
+      // Отправляем событие для обновления других компонентов
+      window.dispatchEvent(new Event("authChange"));
+      navigate("/");
+    }
+  };
 
   return (
     <AppBar position="static" elevation={0}>
@@ -36,30 +140,57 @@ export const Header: React.FC<HeaderProps> = ({
           </IconButton>
         )}
 
-        <Typography
-          variant="h5"
-          component="div"
+        <Box
           sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
             flexGrow: 1,
             cursor: "pointer",
-            fontWeight: 700,
-            letterSpacing: "0.5px",
           }}
           onClick={() => navigate("/")}
         >
-          Beauty CRM
-        </Typography>
+          <Box
+            component="img"
+            src="/ico.svg"
+            alt="Beauty CRM Logo"
+            sx={{
+              width: 48,
+              height: 48,
+              filter: "brightness(0) invert(1)", // Перекрашиваем в белый цвет
+              transition: "opacity 0.2s",
+              "&:hover": {
+                opacity: 0.8,
+              },
+            }}
+          />
+          <Typography
+            variant="h5"
+            component="div"
+            sx={{
+              fontWeight: 700,
+              letterSpacing: "0.5px",
+              fontSize: { xs: "1.125rem", sm: "1.5rem" },
+            }}
+          >
+            Beauty CRM
+          </Typography>
+        </Box>
 
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Box
+          sx={{ display: "flex", gap: { xs: 1, sm: 2 }, alignItems: "center" }}
+        >
           <Button
             color="inherit"
             onClick={() => navigate("/dashboard")}
             sx={{
               textTransform: "none",
               fontWeight: 500,
-              px: 2,
-              py: 1,
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
               borderRadius: 2,
+              fontSize: { xs: "0.75rem", sm: "1rem" },
+              display: { xs: "none", md: "inline-flex" },
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
               },
@@ -73,9 +204,11 @@ export const Header: React.FC<HeaderProps> = ({
             sx={{
               textTransform: "none",
               fontWeight: 500,
-              px: 2,
-              py: 1,
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
               borderRadius: 2,
+              fontSize: { xs: "0.75rem", sm: "1rem" },
+              display: { xs: "none", md: "inline-flex" },
               "&:hover": {
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
               },
@@ -83,19 +216,152 @@ export const Header: React.FC<HeaderProps> = ({
           >
             Услуги
           </Button>
-          <IconButton
-            color="inherit"
-            sx={{
-              ml: 1,
-              "&:hover": {
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-              },
-            }}
-          >
-            <AccountCircle />
-          </IconButton>
+          {master ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                ml: 1,
+                cursor: "pointer",
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 2,
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
+              }}
+              onClick={handleAccountClick}
+            >
+              {master.photoUrl ? (
+                <Avatar
+                  src={normalizeImageUrl(master.photoUrl)}
+                  alt={master.name}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                  }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: "rgba(255, 255, 255, 0.2)",
+                    color: "white",
+                    fontSize: "0.875rem",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </Avatar>
+              )}
+              <Typography
+                variant="body2"
+                sx={{
+                  display: { xs: "none", sm: "block" },
+                  fontWeight: 500,
+                }}
+              >
+                {master.name}
+              </Typography>
+            </Box>
+          ) : (
+            <IconButton
+              color="inherit"
+              onClick={handleAccountClick}
+              sx={{
+                ml: 1,
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
+              }}
+            >
+              <AccountCircle />
+            </IconButton>
+          )}
         </Box>
       </Toolbar>
+
+      {/* Меню пользователя */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        disableAutoFocusItem
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+      >
+        {master && (
+          <MenuItem disabled sx={{ opacity: 1, cursor: "default" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {master.photoUrl ? (
+                <Avatar
+                  src={normalizeImageUrl(master.photoUrl)}
+                  alt={master.name}
+                  sx={{ width: 32, height: 32 }}
+                />
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: "primary.main",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {master.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </Avatar>
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {master.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {master.email}
+                </Typography>
+              </Box>
+            </Box>
+          </MenuItem>
+        )}
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            navigate("/master");
+          }}
+        >
+          Кабинет мастера
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          <Logout sx={{ mr: 1, fontSize: 20 }} />
+          Выйти
+        </MenuItem>
+      </Menu>
+
+      {/* Диалог входа и регистрации */}
+      <AuthDialog
+        open={loginDialogOpen}
+        onClose={() => setLoginDialogOpen(false)}
+        defaultTab="login"
+        onSuccess={handleAuthSuccess}
+      />
     </AppBar>
   );
 };
