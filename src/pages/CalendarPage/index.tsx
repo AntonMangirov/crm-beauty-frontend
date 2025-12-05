@@ -315,14 +315,14 @@ export const CalendarPage: React.FC = () => {
 
   // Объединяем все загруженные данные из кэша в единые Set для отображения
   // Используем useMemo для пересчета при изменении кэша
-  // Используем размер Map и количество дат для отслеживания изменений
-  const appointmentsCacheSize = datesWithAppointmentsCache.size;
-  const appointmentsDatesCount = useMemo(() => {
-    let count = 0;
+  // Используем отсортированный массив всех дат как зависимость, чтобы гарантировать
+  // пересчет при изменении содержимого кэша (даже если размер Map и количество дат остаются теми же)
+  const appointmentsDatesArray = useMemo(() => {
+    const dates: string[] = [];
     datesWithAppointmentsCache.forEach((datesSet) => {
-      count += datesSet.size;
+      datesSet.forEach((date) => dates.push(date));
     });
-    return count;
+    return dates.sort(); // Сортируем для стабильности сравнения
   }, [datesWithAppointmentsCache]);
 
   const allDatesWithAppointments = useMemo(() => {
@@ -331,16 +331,16 @@ export const CalendarPage: React.FC = () => {
       datesSet.forEach((date) => result.add(date));
     });
     return result;
-  }, [appointmentsCacheSize, appointmentsDatesCount]);
+  }, [appointmentsDatesArray, datesWithAppointmentsCache]);
 
   // Используем тот же подход, что и для записей
-  // Вычисляем количество дат для отслеживания изменений
-  const photosDatesCount = useMemo(() => {
-    let count = 0;
+  // Создаем отсортированный массив всех дат для правильного отслеживания изменений
+  const photosDatesArray = useMemo(() => {
+    const dates: string[] = [];
     datesWithCompletedPhotosCache.forEach((datesSet) => {
-      count += datesSet.size;
+      datesSet.forEach((date) => dates.push(date));
     });
-    return count;
+    return dates.sort(); // Сортируем для стабильности сравнения
   }, [datesWithCompletedPhotosCache]);
 
   const allDatesWithCompletedPhotos = useMemo(() => {
@@ -349,7 +349,7 @@ export const CalendarPage: React.FC = () => {
       datesSet.forEach((date) => result.add(date));
     });
     return result;
-  }, [datesWithCompletedPhotosCache.size, photosDatesCount]);
+  }, [photosDatesArray, datesWithCompletedPhotosCache]);
 
   const loadAppointments = async () => {
     if (!selectedDate) return;
