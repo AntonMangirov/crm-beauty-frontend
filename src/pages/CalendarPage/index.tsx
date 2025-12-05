@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Container,
@@ -171,9 +171,12 @@ export const CalendarPage: React.FC = () => {
       );
 
       if (monthsToLoad.length > 0) {
+        // Загружаем данные для всех месяцев параллельно
         Promise.all(
           monthsToLoad.map((month) => loadDatesWithAppointmentsForMonth(month))
-        );
+        ).catch((err) => {
+          logError("Ошибка загрузки данных для месяцев:", err);
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -290,10 +293,12 @@ export const CalendarPage: React.FC = () => {
         }
       });
 
-      // Сохраняем в кэш
+      // Сохраняем в кэш, объединяя с существующими данными для других месяцев
+      // Важно: создаем новый Map и новый Set, чтобы React правильно отслеживал изменения
       setDatesWithCompletedPhotosCache((prev) => {
         const next = new Map(prev);
-        next.set(monthKey, datesWithPhotosSet);
+        // Создаем новый Set для этого месяца
+        next.set(monthKey, new Set(datesWithPhotosSet));
         return next;
       });
 
@@ -309,21 +314,42 @@ export const CalendarPage: React.FC = () => {
   };
 
   // Объединяем все загруженные данные из кэша в единые Set для отображения
-  const getAllDatesWithAppointments = (): Set<string> => {
+  // Используем useMemo для пересчета при изменении кэша
+  // Используем размер Map и количество дат для отслеживания изменений
+  const appointmentsCacheSize = datesWithAppointmentsCache.size;
+  const appointmentsDatesCount = useMemo(() => {
+    let count = 0;
+    datesWithAppointmentsCache.forEach((datesSet) => {
+      count += datesSet.size;
+    });
+    return count;
+  }, [datesWithAppointmentsCache]);
+
+  const allDatesWithAppointments = useMemo(() => {
     const result = new Set<string>();
     datesWithAppointmentsCache.forEach((datesSet) => {
       datesSet.forEach((date) => result.add(date));
     });
     return result;
-  };
+  }, [appointmentsCacheSize, appointmentsDatesCount]);
 
-  const getAllDatesWithCompletedPhotos = (): Set<string> => {
+  // Используем тот же подход, что и для записей
+  // Вычисляем количество дат для отслеживания изменений
+  const photosDatesCount = useMemo(() => {
+    let count = 0;
+    datesWithCompletedPhotosCache.forEach((datesSet) => {
+      count += datesSet.size;
+    });
+    return count;
+  }, [datesWithCompletedPhotosCache]);
+
+  const allDatesWithCompletedPhotos = useMemo(() => {
     const result = new Set<string>();
     datesWithCompletedPhotosCache.forEach((datesSet) => {
       datesSet.forEach((date) => result.add(date));
     });
     return result;
-  };
+  }, [datesWithCompletedPhotosCache.size, photosDatesCount]);
 
   const loadAppointments = async () => {
     if (!selectedDate) return;
@@ -352,22 +378,21 @@ export const CalendarPage: React.FC = () => {
 
       setAppointments(data);
 
-      // Обновляем кэш дат с фотографиями на основе загруженных данных для выбранного дня
+      // Обновляем кэш дат с фотографиями для выбранного дня
+      // Это нужно для немедленного отображения маркеров на выбранном дне
       const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
       const monthKey = format(selectedDate, "yyyy-MM");
-      const clientsWithPhotos = new Set<string>();
 
-      data.forEach((apt) => {
-        if (apt.photos && Array.isArray(apt.photos) && apt.photos.length > 0) {
-          clientsWithPhotos.add(apt.clientId);
-        }
-      });
-
+      // Проверяем, есть ли завершенные записи с фотографиями на выбранный день
       const hasCompletedWithPhotos = data.some(
         (apt) =>
-          apt.status === "COMPLETED" && clientsWithPhotos.has(apt.clientId)
+          apt.status === "COMPLETED" &&
+          apt.photos &&
+          Array.isArray(apt.photos) &&
+          apt.photos.length > 0
       );
 
+      // Обновляем кэш для выбранного дня, не перезаписывая данные для всего месяца
       if (hasCompletedWithPhotos) {
         setDatesWithCompletedPhotosCache((prev) => {
           const next = new Map(prev);
@@ -376,6 +401,23 @@ export const CalendarPage: React.FC = () => {
           updatedSet.add(selectedDateKey);
           next.set(monthKey, updatedSet);
           return next;
+        });
+      } else {
+        // Если нет фотографий, удаляем дату из кэша (если она там была)
+        setDatesWithCompletedPhotosCache((prev) => {
+          const next = new Map(prev);
+          const monthSet = next.get(monthKey);
+          if (monthSet) {
+            const updatedSet = new Set(monthSet);
+            updatedSet.delete(selectedDateKey);
+            if (updatedSet.size > 0) {
+              next.set(monthKey, updatedSet);
+            } else {
+              next.delete(monthKey);
+            }
+            return next;
+          }
+          return prev;
         });
       }
     } catch (err) {
@@ -513,7 +555,12 @@ export const CalendarPage: React.FC = () => {
         return next;
       });
 
-      // Сбрасываем кэш для этого месяца, чтобы перезагрузить данные о фотографиях
+      // Очищаем кэш для этого месяца, чтобы перезагрузить данные о фотографиях
+      setDatesWithCompletedPhotosCache((prev) => {
+        const next = new Map(prev);
+        next.delete(monthKey);
+        return next;
+      });
       setLoadedMonths((prev) => {
         const next = new Set(prev);
         next.delete(monthKey);
@@ -591,6 +638,12 @@ export const CalendarPage: React.FC = () => {
         appointmentToChangeStatus.currentStatus === "COMPLETED" ||
         newStatus === "COMPLETED"
       ) {
+        // Очищаем кэш для этого месяца, чтобы перезагрузить данные о фотографиях
+        setDatesWithCompletedPhotosCache((prev) => {
+          const next = new Map(prev);
+          next.delete(monthKey);
+          return next;
+        });
         setLoadedMonths((prev) => {
           const next = new Set(prev);
           next.delete(monthKey);
@@ -632,18 +685,27 @@ export const CalendarPage: React.FC = () => {
 
   const handlePhotosUpdated = async () => {
     if (selectedAppointmentForPhotos) {
-      await loadAppointments();
       // Перезагружаем даты с фотографиями после обновления
-      if (selectedDate) {
-        const monthKey = format(selectedDate, "yyyy-MM");
-        // Сбрасываем кэш для этого месяца, чтобы перезагрузить данные
-        setLoadedMonths((prev) => {
-          const next = new Set(prev);
-          next.delete(monthKey);
-          return next;
-        });
-        await loadDatesWithAppointmentsForMonth(monthKey);
-      }
+      // Сначала определяем месяц записи, для которой были загружены фото
+      const appointmentDate = new Date(selectedAppointmentForPhotos.startAt);
+      const monthKey = format(appointmentDate, "yyyy-MM");
+      const dateKey = format(appointmentDate, "yyyy-MM-dd");
+
+      // Небольшая задержка, чтобы дать серверу время синхронизировать данные
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Сбрасываем флаг загрузки месяца, чтобы перезагрузить данные
+      setLoadedMonths((prev) => {
+        const next = new Set(prev);
+        next.delete(monthKey);
+        return next;
+      });
+
+      // Перезагружаем данные для месяца (это обновит кэш для всех дней месяца)
+      await loadDatesWithAppointmentsForMonth(monthKey);
+
+      // Затем перезагружаем записи для выбранного дня (это обновит кэш для выбранного дня на основе актуальных данных)
+      await loadAppointments();
     }
   };
 
@@ -1032,10 +1094,6 @@ export const CalendarPage: React.FC = () => {
                 day: (props) => {
                   const { day, ...other } = props;
                   const dateKey = format(day, "yyyy-MM-dd");
-                  const allDatesWithAppointments =
-                    getAllDatesWithAppointments();
-                  const allDatesWithCompletedPhotos =
-                    getAllDatesWithCompletedPhotos();
                   const hasAppointments = allDatesWithAppointments.has(dateKey);
                   const hasCompletedPhotos =
                     allDatesWithCompletedPhotos.has(dateKey);
