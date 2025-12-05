@@ -23,6 +23,8 @@ import {
   AttachMoney as MoneyIcon,
   Schedule as ScheduleIcon,
   Edit as EditIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -54,6 +56,9 @@ export const AppointmentDetailsModal: React.FC<
   const [rescheduling, setRescheduling] = useState(false);
   const [slotsPage, setSlotsPage] = useState(1);
   const slotsPerPage = 18;
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
+    null
+  );
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -63,6 +68,7 @@ export const AppointmentDetailsModal: React.FC<
       setAvailableSlots([]);
       setSelectedSlot(null);
       setSlotsPage(1);
+      setSelectedPhotoIndex(null);
     } else if (appointment) {
       // Устанавливаем текущую дату встречи при открытии
       setSelectedDate(parseISO(appointment.startAt));
@@ -186,7 +192,13 @@ export const AppointmentDetailsModal: React.FC<
         {!rescheduleMode ? (
           <Stack spacing={2}>
             {/* Статус */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <Typography variant="subtitle2" color="text.secondary">
                 Статус
               </Typography>
@@ -251,7 +263,9 @@ export const AppointmentDetailsModal: React.FC<
                 </Typography>
               </Box>
               <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                {formatDate(appointment.startAt)} {formatTime(appointment.startAt)} - {formatTime(appointment.endAt)}
+                {formatDate(appointment.startAt)}{" "}
+                {formatTime(appointment.startAt)} -{" "}
+                {formatTime(appointment.endAt)}
               </Typography>
             </Box>
 
@@ -279,7 +293,11 @@ export const AppointmentDetailsModal: React.FC<
             {appointment.notes && (
               <>
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
                     Заметки
                   </Typography>
                   <Typography variant="body2">{appointment.notes}</Typography>
@@ -294,16 +312,21 @@ export const AppointmentDetailsModal: React.FC<
               appointment.photos.length > 0 && (
                 <>
                   <Box>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
+                    >
                       Фото работ ({appointment.photos.length})
                     </Typography>
                     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                      {appointment.photos.map((photo) => (
+                      {appointment.photos.map((photo, index) => (
                         <Box
                           key={photo.id}
                           component="img"
                           src={normalizeImageUrl(photo.url)}
                           alt={photo.description || "Фото"}
+                          onClick={() => setSelectedPhotoIndex(index)}
                           sx={{
                             width: 80,
                             height: 80,
@@ -311,6 +334,12 @@ export const AppointmentDetailsModal: React.FC<
                             borderRadius: 1,
                             border: "1px solid",
                             borderColor: "divider",
+                            cursor: "pointer",
+                            transition: "transform 0.2s, box-shadow 0.2s",
+                            "&:hover": {
+                              transform: "scale(1.05)",
+                              boxShadow: 3,
+                            },
                           }}
                         />
                       ))}
@@ -328,10 +357,17 @@ export const AppointmentDetailsModal: React.FC<
 
             {/* Выбор даты */}
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ mb: 1 }}
+              >
                 Выберите дату
               </Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ru}>
+              <LocalizationProvider
+                dateAdapter={AdapterDateFns}
+                adapterLocale={ru}
+              >
                 <DatePicker
                   value={selectedDate}
                   onChange={(newValue) => setSelectedDate(newValue)}
@@ -349,11 +385,17 @@ export const AppointmentDetailsModal: React.FC<
             {/* Доступные слоты */}
             {selectedDate && (
               <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
                   Выберите время
                 </Typography>
                 {loadingSlots ? (
-                  <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", py: 2 }}
+                  >
                     <CircularProgress size={24} />
                   </Box>
                 ) : availableSlots.length === 0 ? (
@@ -364,10 +406,16 @@ export const AppointmentDetailsModal: React.FC<
                   <>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                       {availableSlots
-                        .slice((slotsPage - 1) * slotsPerPage, slotsPage * slotsPerPage)
+                        .slice(
+                          (slotsPage - 1) * slotsPerPage,
+                          slotsPage * slotsPerPage
+                        )
                         .map((slot) => {
                           const slotDate = parseISO(slot);
-                          const slotEnd = addMinutes(slotDate, appointment.service.durationMin);
+                          const slotEnd = addMinutes(
+                            slotDate,
+                            appointment.service.durationMin
+                          );
                           const isSelected = selectedSlot === slot;
                           return (
                             <Button
@@ -382,15 +430,24 @@ export const AppointmentDetailsModal: React.FC<
                                 maxWidth: "calc(33.333% - 8px)",
                               }}
                             >
-                              {formatTime(slot)} - {formatTime(slotEnd.toISOString())}
+                              {formatTime(slot)} -{" "}
+                              {formatTime(slotEnd.toISOString())}
                             </Button>
                           );
                         })}
                     </Box>
                     {availableSlots.length > slotsPerPage && (
-                      <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          mt: 2,
+                        }}
+                      >
                         <Pagination
-                          count={Math.ceil(availableSlots.length / slotsPerPage)}
+                          count={Math.ceil(
+                            availableSlots.length / slotsPerPage
+                          )}
                           page={slotsPage}
                           onChange={(_, value) => setSlotsPage(value)}
                           size="small"
@@ -434,14 +491,193 @@ export const AppointmentDetailsModal: React.FC<
               variant="contained"
               onClick={handleReschedule}
               disabled={!selectedSlot || rescheduling}
-              startIcon={rescheduling ? <CircularProgress size={16} /> : <ScheduleIcon />}
+              startIcon={
+                rescheduling ? <CircularProgress size={16} /> : <ScheduleIcon />
+              }
             >
               {rescheduling ? "Перенос..." : "Перенести встречу"}
             </Button>
           </>
         )}
       </DialogActions>
+
+      {/* Модальное окно для просмотра фото в полном размере */}
+      {selectedPhotoIndex !== null &&
+        appointment.photos &&
+        appointment.photos.length > 0 && (
+          <Dialog
+            open={selectedPhotoIndex !== null}
+            onClose={() => setSelectedPhotoIndex(null)}
+            maxWidth="lg"
+            fullWidth
+            PaperProps={{
+              sx: {
+                bgcolor: "rgba(0, 0, 0, 0.95)",
+                borderRadius: 1,
+              },
+            }}
+            onKeyDown={(e) => {
+              if (
+                e.key === "ArrowLeft" &&
+                selectedPhotoIndex !== null &&
+                selectedPhotoIndex > 0
+              ) {
+                setSelectedPhotoIndex(selectedPhotoIndex - 1);
+              } else if (
+                e.key === "ArrowRight" &&
+                selectedPhotoIndex !== null &&
+                selectedPhotoIndex < appointment.photos!.length - 1
+              ) {
+                setSelectedPhotoIndex(selectedPhotoIndex + 1);
+              } else if (e.key === "Escape") {
+                setSelectedPhotoIndex(null);
+              }
+            }}
+          >
+            <DialogContent sx={{ p: 0, position: "relative" }}>
+              <IconButton
+                onClick={() => setSelectedPhotoIndex(null)}
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  zIndex: 1000,
+                  bgcolor: "rgba(255, 255, 255, 0.9)",
+                  "&:hover": {
+                    bgcolor: "white",
+                  },
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+
+              {/* Кнопка предыдущего фото */}
+              {appointment.photos.length > 1 && selectedPhotoIndex > 0 && (
+                <IconButton
+                  onClick={() =>
+                    setSelectedPhotoIndex(
+                      selectedPhotoIndex !== null ? selectedPhotoIndex - 1 : 0
+                    )
+                  }
+                  sx={{
+                    position: "absolute",
+                    left: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 1000,
+                    bgcolor: "rgba(255, 255, 255, 0.9)",
+                    "&:hover": {
+                      bgcolor: "white",
+                    },
+                  }}
+                >
+                  <ChevronLeftIcon />
+                </IconButton>
+              )}
+
+              {/* Кнопка следующего фото */}
+              {appointment.photos.length > 1 &&
+                selectedPhotoIndex !== null &&
+                selectedPhotoIndex < appointment.photos.length - 1 && (
+                  <IconButton
+                    onClick={() =>
+                      setSelectedPhotoIndex(
+                        selectedPhotoIndex !== null ? selectedPhotoIndex + 1 : 0
+                      )
+                    }
+                    sx={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      zIndex: 1000,
+                      bgcolor: "rgba(255, 255, 255, 0.9)",
+                      "&:hover": {
+                        bgcolor: "white",
+                      },
+                    }}
+                  >
+                    <ChevronRightIcon />
+                  </IconButton>
+                )}
+
+              {/* Счетчик фото */}
+              {appointment.photos.length > 1 && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 16,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 1000,
+                    bgcolor: "rgba(0, 0, 0, 0.7)",
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: "white" }}>
+                    {selectedPhotoIndex !== null ? selectedPhotoIndex + 1 : 1} /{" "}
+                    {appointment.photos.length}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Изображение */}
+              <Box
+                component="img"
+                src={normalizeImageUrl(
+                  appointment.photos[
+                    selectedPhotoIndex !== null ? selectedPhotoIndex : 0
+                  ].url
+                )}
+                alt={
+                  appointment.photos[
+                    selectedPhotoIndex !== null ? selectedPhotoIndex : 0
+                  ].description || "Фото работы"
+                }
+                sx={{
+                  width: "100%",
+                  height: "auto",
+                  maxHeight: "85vh",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+
+              {/* Описание фото */}
+              {appointment.photos[
+                selectedPhotoIndex !== null ? selectedPhotoIndex : 0
+              ].description && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: appointment.photos.length > 1 ? 50 : 16,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 1000,
+                    bgcolor: "rgba(0, 0, 0, 0.7)",
+                    px: 2,
+                    py: 1,
+                    borderRadius: 1,
+                    maxWidth: "80%",
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "white", textAlign: "center" }}
+                  >
+                    {
+                      appointment.photos[
+                        selectedPhotoIndex !== null ? selectedPhotoIndex : 0
+                      ].description
+                    }
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
     </Dialog>
   );
 };
-
