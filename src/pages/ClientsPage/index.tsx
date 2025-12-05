@@ -14,7 +14,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   TextField,
   InputAdornment,
   Select,
@@ -43,19 +42,23 @@ export const ClientsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<'name' | 'lastVisit'>('name');
+  const [sortBy, setSortBy] = useState<"name" | "lastVisit">("name");
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(
+    null
+  );
   const { showSnackbar } = useSnackbar();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
     loadClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy]);
 
   useEffect(() => {
     filterClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, allClients]);
 
   const loadClients = async () => {
@@ -110,9 +113,13 @@ export const ClientsPage: React.FC = () => {
             return true;
           }
           // Также проверяем формат "dd MMMM yyyy"
-          const dateStrLong = format(new Date(client.lastVisit), "dd MMMM yyyy", {
-            locale: ru,
-          });
+          const dateStrLong = format(
+            new Date(client.lastVisit),
+            "dd MMMM yyyy",
+            {
+              locale: ru,
+            }
+          );
           if (dateStrLong.toLowerCase().includes(query)) {
             return true;
           }
@@ -180,11 +187,7 @@ export const ClientsPage: React.FC = () => {
         }
         return (
           <Box>
-            {phone && (
-              <Typography variant="body2">
-                📞 {phone}
-              </Typography>
-            )}
+            {phone && <Typography variant="body2">📞 {phone}</Typography>}
             {telegramUsername && (
               <Typography variant="body2" color="text.secondary">
                 ✈️ @{telegramUsername}
@@ -211,19 +214,27 @@ export const ClientsPage: React.FC = () => {
       },
     },
     {
-      field: "photos",
+      field: "photosCount",
       headerName: "Фото",
       width: 100,
       flex: isMobile ? 0 : 0.6,
       minWidth: 80,
       align: "center",
       headerAlign: "center",
+      sortable: false, // Отключаем сортировку по фото, так как она не очень полезна
       renderCell: (params: GridRenderCellParams<ClientListItem>) => {
         const photosCount = params.row.photosCount || 0;
-        
+
         if (photosCount === 0) {
           return (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 0.5,
+              }}
+            >
               <ImageIcon sx={{ fontSize: 18, color: "text.disabled" }} />
             </Box>
           );
@@ -239,7 +250,10 @@ export const ClientsPage: React.FC = () => {
             }}
           >
             <PhotoCameraIcon sx={{ fontSize: 18, color: "success.main" }} />
-            <Typography variant="body2" sx={{ fontWeight: 500, color: "success.main" }}>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 500, color: "success.main" }}
+            >
               {photosCount}
             </Typography>
           </Box>
@@ -292,7 +306,13 @@ export const ClientsPage: React.FC = () => {
 
       {/* Поиск и сортировка */}
       <Card sx={{ mb: 2, p: 2 }}>
-        <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
           <TextField
             fullWidth
             placeholder="Поиск по имени, телефону, Telegram ID или дате..."
@@ -316,7 +336,9 @@ export const ClientsPage: React.FC = () => {
             <Select
               value={sortBy}
               label="Сортировка"
-              onChange={(e) => setSortBy(e.target.value as 'name' | 'lastVisit')}
+              onChange={(e) =>
+                setSortBy(e.target.value as "name" | "lastVisit")
+              }
             >
               <MenuItem value="name">По имени</MenuItem>
               <MenuItem value="lastVisit">По последнему визиту</MenuItem>
@@ -324,7 +346,11 @@ export const ClientsPage: React.FC = () => {
           </FormControl>
         </Box>
         {searchQuery && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 1, display: "block" }}
+          >
             Найдено клиентов: {clients.length}
           </Typography>
         )}
@@ -350,7 +376,11 @@ export const ClientsPage: React.FC = () => {
                 <TableRow>
                   {columns.map((column, index) => (
                     <TableCell key={index}>
-                      <Skeleton variant="text" width={column.width || 150} height={24} />
+                      <Skeleton
+                        variant="text"
+                        width={column.width || 150}
+                        height={24}
+                      />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -358,7 +388,7 @@ export const ClientsPage: React.FC = () => {
               <TableBody>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
                   <TableRow key={row}>
-                    {columns.map((column, index) => (
+                    {columns.map((_, index) => (
                       <TableCell key={index}>
                         <Skeleton variant="text" width="80%" height={20} />
                       </TableCell>
@@ -438,4 +468,3 @@ export const ClientsPage: React.FC = () => {
     </Container>
   );
 };
-
